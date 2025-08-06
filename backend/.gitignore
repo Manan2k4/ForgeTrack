@@ -1,0 +1,33 @@
+# Node.js
+node_modules/
+dist/
+.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/ # If using pnpm with a global store in the project root
+pnpm-lock.yaml # If you want to ignore this, but generally it's good to commit for consistent installs
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OS generated files
+.DS_Store
+.vscode/ # VSCode settings, if not shared with team
+Thumbs.db
+
+# MongoDB (local data)
+data/db/ # If you run a local MongoDB instance and store data here
+*.sqlite
+*.sqlite3
+
+# Test coverage
+coverage/
+
+# Compiled files
+*.js.map
+*.cjs.map
+*.mjs.map
