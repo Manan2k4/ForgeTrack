@@ -1,15 +1,11 @@
 // ForgeTrack/admin-panel/src/components/CollapsibleSidebar.jsx
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
 
-const CollapsibleSidebar = () => {
+// Accept isOpen and toggleSidebar as props
+const CollapsibleSidebar = ({ isOpen, toggleSidebar }) => {
     const { logout } = useAuth();
-    const [isOpen, setIsOpen] = useState(true);
-
-    const toggleSidebar = () => {
-        setIsOpen(!isOpen);
-    };
 
     return (
         <div className="relative">

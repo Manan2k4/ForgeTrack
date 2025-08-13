@@ -1,5 +1,5 @@
 // ForgeTrack/admin-panel/src/App.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/authContext';
 import LoginPage from './pages/LoginPage';
@@ -7,7 +7,7 @@ import DashboardPage from './pages/DashboardPage';
 import EmployeeManagementPage from './pages/EmployeeManagementPage';
 import WorkerLogsPage from './pages/WorkerLogsPage';
 import ProductManagementPage from './pages/ProductManagementPage';
-import CollapsibleSidebar from './components/CollapsibileSidebar'; // <-- Use the new component
+import CollapsibleSidebar from './components/CollapsibleSidebar';
 
 // PrivateRoute component to protect routes
 const PrivateRoute = ({ children, allowedRoles }) => {
@@ -43,6 +43,11 @@ function App() {
 // Component to render content based on auth state
 function AppContent() {
     const { isAuthenticated, isAdmin, loading } = useAuth();
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+    const toggleSidebar = () => {
+        setIsSidebarOpen(!isSidebarOpen);
+    };
 
     if (loading) {
       return <div className="flex items-center justify-center min-h-screen bg-gray-100 text-gray-700">Loading...</div>;
@@ -50,8 +55,8 @@ function AppContent() {
 
     return (
         <div className="flex min-h-screen selection:bg-yellow-100 selection:text-black">
-            {isAuthenticated && isAdmin && <CollapsibleSidebar />} {/* <-- Render the new sidebar */}
-            <div className="flex-1">
+            {isAuthenticated && isAdmin && <CollapsibleSidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />}
+            <div className={`flex-1 transition-all duration-300 ${isAuthenticated && isAdmin && isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
                 <Routes>
                     <Route path="/login" element={<LoginPage />} />
                     <Route

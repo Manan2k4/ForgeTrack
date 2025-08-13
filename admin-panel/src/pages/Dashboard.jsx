@@ -25,6 +25,9 @@ const Dashboard = () => {
             Add Employee
           </button>
           <button className="bg-black text-white py-2 rounded hover:bg-gray-800">
+            Add Product
+          </button>
+          <button className="bg-black text-white py-2 rounded hover:bg-gray-800">
             Remove Employee
           </button>
           <button className="bg-black text-white py-2 rounded hover:bg-gray-800">
