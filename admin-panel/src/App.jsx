@@ -1,39 +1,81 @@
-import React from "react";
+// ForgeTrack/admin-panel/src/App.jsx
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/authContext';
+import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
+import EmployeeManagementPage from './pages/EmployeeManagementPage';
+import WorkerLogsPage from './pages/WorkerLogsPage';
+import ProductManagementPage from './pages/ProductManagementPage'; // <-- NEW: Import the new page
+import Sidebar from './components/Sidebar';
 
-const App = () => {
-  return (
-    <div className="flex h-screen w-screen overflow-hidden">
-      {/* Sidebar */}
-      <aside className="bg-gray-900 w-64 min-w-[16rem] p-5 shadow-md text-white">
-        <h1 className="text-xl font-bold mb-6">ForgeTrack Admin</h1>
-        <nav className="space-y-4">
-          <button className="w-full text-left px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800">
-            🧑‍🏭 Employees
-          </button>
-          <button className="w-full text-left px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800">
-            🚚 Transporters
-          </button>
-          <button className="w-full text-left px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800">
-            📊 Reports
-          </button>
-        </nav>
-      </aside>
+const PrivateRoute = ({ children, allowedRoles }) => {
+    const { isAuthenticated, user, loading } = useAuth();
 
-      {/* Main Content */}
-      <main className="flex-1 bg-gray-100 p-6 overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-800">Dashboard</h2>
-          <button className="bg-red-500 text-white px-4 py-2 rounded">Logout</button>
-        </div>
+    if (loading) {
+        return <div className="flex items-center justify-center min-h-screen bg-gray-100 text-gray-700">Loading...</div>;
+    }
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded shadow text-gray-800">Total Employees: 24</div>
-          <div className="bg-white p-5 rounded shadow text-gray-800">Deliveries Today: 5</div>
-          <div className="bg-white p-5 rounded shadow text-gray-800">Pending Logs: 8</div>
-        </div>
-      </main>
-    </div>
-  );
+    if (!isAuthenticated || !user) {
+        return <Navigate to="/login" replace />;
+    }
+
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+        console.warn(`Access denied: User role '${user.role}' is not authorized.`);
+        return <Navigate to="/dashboard" replace />;
+    }
+
+    return children;
 };
+
+function App() {
+    return (
+        <Router>
+            <AuthProvider>
+                <AppContent />
+            </AuthProvider>
+        </Router>
+    );
+}
+
+function AppContent() {
+    const { isAuthenticated, isAdmin } = useAuth();
+
+    return (
+        <div className="flex min-h-screen">
+            {isAuthenticated && isAdmin && <Sidebar />}
+            <div className="flex-1">
+                <Routes>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route
+                        path="/dashboard"
+                        element={<PrivateRoute allowedRoles={['admin']}><DashboardPage /></PrivateRoute>}
+                    />
+                    <Route
+                        path="/employees"
+                        element={<PrivateRoute allowedRoles={['admin']}><EmployeeManagementPage /></PrivateRoute>}
+                    />
+                    <Route
+                        path="/worker-logs"
+                        element={<PrivateRoute allowedRoles={['admin']}><WorkerLogsPage /></PrivateRoute>}
+                    />
+                    <Route
+                        path="/products" // <-- NEW: Add the route for the products page
+                        element={<PrivateRoute allowedRoles={['admin']}><ProductManagementPage /></PrivateRoute>}
+                    />
+                    <Route
+                        path="/transporter-logs"
+                        element={<PrivateRoute allowedRoles={['admin']}><div className="p-6 text-gray-700">Transporter Logs Page (Coming Soon!)</div></PrivateRoute>}
+                    />
+                     <Route
+                        path="/reports"
+                        element={<PrivateRoute allowedRoles={['admin']}><div className="p-6 text-gray-700">Reports Page (Coming Soon!)</div></PrivateRoute>}
+                    />
+                    <Route path="/" element={isAuthenticated && isAdmin ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
+                </Routes>
+            </div>
+        </div>
+    );
+}
 
 export default App;
