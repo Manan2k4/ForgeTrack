@@ -1,10 +1,10 @@
 // ForgeTrack/admin-panel/src/components/Sidebar.jsx
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { useAuth } from '../context/authContext';
+import { useAuth } from '../context/authContext'; // Import useAuth to get logout function
 
 const Sidebar = () => {
-    const { logout } = useAuth();
+    const { logout } = useAuth(); // Get logout function from context
 
     return (
         <div className="w-64 bg-gray-800 text-white flex flex-col min-h-screen shadow-lg">

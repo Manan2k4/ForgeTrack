@@ -16,10 +16,7 @@ const Dashboard = () => {
       {/* Sidebar */}
       <aside className="bg-white md:w-64 w-full border-r border-gray-300 px-6 py-4">
         {/* Logo + Title */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold">Prince<sup>®</sup></h1>
-          <p className="text-sm">Quality of Products and Services high Standards</p>
-        </div>
+
 
         {/* Sidebar Content */}
         <h2 className="text-lg font-semibold mb-4">Dashboard</h2>

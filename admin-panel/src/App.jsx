@@ -6,9 +6,10 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import EmployeeManagementPage from './pages/EmployeeManagementPage';
 import WorkerLogsPage from './pages/WorkerLogsPage';
-import ProductManagementPage from './pages/ProductManagementPage'; // <-- NEW: Import the new page
-import Sidebar from './components/Sidebar';
+import ProductManagementPage from './pages/ProductManagementPage';
+import CollapsibleSidebar from './components/CollapsibileSidebar'; // <-- Use the new component
 
+// PrivateRoute component to protect routes
 const PrivateRoute = ({ children, allowedRoles }) => {
     const { isAuthenticated, user, loading } = useAuth();
 
@@ -28,6 +29,7 @@ const PrivateRoute = ({ children, allowedRoles }) => {
     return children;
 };
 
+// Main App component
 function App() {
     return (
         <Router>
@@ -38,12 +40,17 @@ function App() {
     );
 }
 
+// Component to render content based on auth state
 function AppContent() {
-    const { isAuthenticated, isAdmin } = useAuth();
+    const { isAuthenticated, isAdmin, loading } = useAuth();
+
+    if (loading) {
+      return <div className="flex items-center justify-center min-h-screen bg-gray-100 text-gray-700">Loading...</div>;
+    }
 
     return (
-        <div className="flex min-h-screen">
-            {isAuthenticated && isAdmin && <Sidebar />}
+        <div className="flex min-h-screen selection:bg-yellow-100 selection:text-black">
+            {isAuthenticated && isAdmin && <CollapsibleSidebar />} {/* <-- Render the new sidebar */}
             <div className="flex-1">
                 <Routes>
                     <Route path="/login" element={<LoginPage />} />
@@ -60,7 +67,7 @@ function AppContent() {
                         element={<PrivateRoute allowedRoles={['admin']}><WorkerLogsPage /></PrivateRoute>}
                     />
                     <Route
-                        path="/products" // <-- NEW: Add the route for the products page
+                        path="/products"
                         element={<PrivateRoute allowedRoles={['admin']}><ProductManagementPage /></PrivateRoute>}
                     />
                     <Route

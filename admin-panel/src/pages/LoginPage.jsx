@@ -26,11 +26,6 @@ const LoginPage = () => {
       <div className="w-full max-w-md bg-white border border-gray-300 p-8 shadow-lg rounded">
         {/* Logo + Title */}
         <div className="mb-8 text-center">
-          <img
-            src="/src/assets/prince-logo.png"
-            alt="Prince Logo"
-            className="mx-auto mb-2 w-28"
-          />
           <h2 className="text-xl font-semibold mt-4 text-gray-800">Admin Login</h2>
         </div>
 
