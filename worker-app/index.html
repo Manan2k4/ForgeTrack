@@ -1,13 +1,62 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ForgeTrack — Worker App</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>ForgeTrack — Worker</h1>
+      <div id="user-area"></div>
+    </header>
+
+    <main class="content-wrap">
+      <section id="login-section" class="panel">
+        <h2>Employee Login</h2>
+        <form id="login-form">
+          <label>Username<input name="username" required /></label>
+          <label>Password<input name="password" type="password" required /></label>
+          <div class="row">
+            <button type="submit" class="primary">Login</button>
+            <button type="button" id="clear">Clear</button>
+          </div>
+        </form>
+        <p class="muted">Employees are created by admin. Admin credentials: admin/admin.</p>
+      </section>
+
+      <section id="dashboard" class="panel hidden">
+        <h2>Welcome, <span id="emp-name"></span></h2>
+        <div class="jobs">
+          <button class="job" data-type="Rod">Inside Job Rod</button>
+          <button class="job" data-type="Sleeve">Inside Job Sleeve</button>
+          <button class="job" data-type="Pin">Inside Job Pin</button>
+        </div>
+
+        <div id="job-area" class="hidden">
+          <h3 id="job-title"></h3>
+          <form id="job-form">
+            <label id="primary-label">Item<select id="primary-select" required></select></label>
+            <label>Size<select id="size-select" required></select></label>
+            <label>Number<input id="count" type="number" min="1" value="1" required /></label>
+            <div class="row">
+              <button type="submit" class="primary">Submit</button>
+              <button type="button" id="cancel-job">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="row" style="margin-top:12px;">
+          <button id="logout" class="danger">Logout</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">ForgeTrack — Worker (local demo)</footer>
+  </div>
+
+  <script src="worker-app.js"></script>
+</body>
 </html>

@@ -1,13 +1,122 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ForgeTrack — Admin Panel</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>ForgeTrack — Admin</h1>
+      <div class="meta">Admin user: <strong>admin</strong> (use admin/admin)</div>
+    </header>
+
+    <main class="main-grid">
+      <aside class="sidebar">
+        <button data-view="add-employee">Add Employee</button>
+        <button data-view="manage-employees">Manage Employees</button>
+        <button data-view="add-product">Add Product</button>
+        <button data-view="view-logs">View Logs</button>
+        <hr />
+        <button id="logout">Logout</button>
+      </aside>
+
+      <section class="content">
+        <div id="login-view" class="view">
+          <h2>Admin Login</h2>
+          <form id="login-form">
+            <label>Username<input name="username" required /></label>
+            <label>Password<input name="password" type="password" required /></label>
+            <div class="row">
+              <button type="submit" class="primary">Login</button>
+            </div>
+            <p class="muted">Hint: admin / admin</p>
+          </form>
+        </div>
+
+        <div id="add-employee" class="view hidden">
+          <h2>Add Employee</h2>
+          <form id="add-employee-form">
+            <label>Name<input name="name" required /></label>
+            <label>Contact<input name="contact" required /></label>
+            <label>Address<input name="address" /></label>
+            <label>Username<input name="username" required /></label>
+            <label>Password<input name="password" required /></label>
+            <label>Department
+              <select name="department">
+                <option>Production</option>
+                <option>Quality</option>
+                <option>Assembly</option>
+                <option>Packing</option>
+              </select>
+            </label>
+            <div class="row">
+              <button type="submit" class="primary">Create</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="manage-employees" class="view hidden">
+          <h2>Employees</h2>
+          <table id="employees-table">
+            <thead><tr><th>Name</th><th>Username</th><th>Dept</th><th>Contact</th><th>Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div id="add-product" class="view hidden">
+          <h2>Add Product</h2>
+          <form id="product-form">
+            <label>Type
+              <select id="product-type" name="type">
+                <option value="Sleeve">Sleeve</option>
+                <option value="Rod">Rod</option>
+                <option value="Pin">Pin</option>
+              </select>
+            </label>
+
+            <div id="sleeve-fields" class="variant">
+              <label>Code<input name="code" /></label>
+              <label>Sizes (comma separated)<input name="sizes_sleeve" placeholder="S1,S2,ALPHA" /></label>
+            </div>
+
+            <div id="rodpin-fields" class="variant hidden">
+              <label>Part Name<input name="partName" /></label>
+              <label>Sizes (comma separated)<input name="sizes_rodpin" placeholder="10mm,12mm" /></label>
+            </div>
+
+            <div class="row">
+              <button type="submit" class="primary">Save Product</button>
+              <button type="button" id="clear-prod">Clear</button>
+            </div>
+          </form>
+
+          <hr />
+
+          <div id="product-lists">
+            <h3>Sleeves</h3>
+            <table id="table-sleeve"><thead><tr><th>Code</th><th>Sizes</th><th>Actions</th></tr></thead><tbody></tbody></table>
+
+            <h3>Rods</h3>
+            <table id="table-rod"><thead><tr><th>Part</th><th>Sizes</th><th>Actions</th></tr></thead><tbody></tbody></table>
+
+            <h3>Pins</h3>
+            <table id="table-pin"><thead><tr><th>Part</th><th>Sizes</th><th>Actions</th></tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+
+        <div id="view-logs" class="view hidden">
+          <h2>Logs</h2>
+          <div id="logs-container"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">ForgeTrack — Admin (data stored in browser localStorage)</footer>
+  </div>
+
+  <script src="admin-app.js"></script>
+</body>
 </html>

@@ -1,12 +1,24 @@
-# React + Vite
+````markdown name=README.md
+```markdown
+# ForgeTrack — Admin Panel
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Location: admin-panel/
 
-Currently, two official plugins are available:
+Features:
+- Admin login (admin/admin).
+- Add employees (name, contact, address, username, password, department).
+- Manage employees (delete, impersonate).
+- Add products (Sleeve: code + sizes; Rod/Pin: part-name + sizes).
+- Product lists with edit/delete.
+- View logs submitted by employees (grouped by date).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Storage:
+- All data saved in browser localStorage under keys:
+  - ft_employees
+  - ft_products
+  - ft_logs
+  - ft_currentUser
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Open index.html in a browser to use. This is intentionally a client-side demo so you can test flows quickly.
+```
+````

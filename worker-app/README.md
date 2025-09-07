@@ -1,12 +1,19 @@
-# React + Vite
+````markdown name=README.md
+```markdown
+# ForgeTrack — Worker App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Location: worker-app/
 
-Currently, two official plugins are available:
+Features:
+- Employee login using credentials created by admin.
+- Auto-login via localStorage (ft_currentUser).
+- Three job buttons: Inside Job Rod, Inside Job Sleeve, Inside Job Pin.
+- Dependent dropdowns:
+  - Sleeve: first dropdown = code (from admin's product list). size dropdown depends on selected code.
+  - Rod/Pin: first dropdown = part-name. size dropdown depends on part-name.
+- Submit logs: saved in localStorage key ft_logs with date and employee info.
+- Worker UI hides logs — only admin can view logs from admin-panel.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Open index.html in a browser to use.
+```
+````
