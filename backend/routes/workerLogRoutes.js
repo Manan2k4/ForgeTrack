@@ -12,7 +12,9 @@ const router = express.Router();
 router.get('/', protect, authorize('admin'), asyncHandler(async (req, res) => {
     // Admins can view all worker logs
     // You can add query parameters for filtering (e.g., by worker, date range) here
-    const logs = await WorkerLog.find({}).populate('worker', 'username displayName'); // Populate worker details
+    const logs = await WorkerLog.find({})
+        .populate('worker', 'username displayName')
+        .sort({ workDate: -1, timestamp: -1 }); // Sort by work date, then timestamp
     res.json(logs);
 }));
 
@@ -20,13 +22,15 @@ router.get('/', protect, authorize('admin'), asyncHandler(async (req, res) => {
 // @desc    Create a new worker log (by a worker)
 // @access  Private (Worker only)
 router.post('/', protect, authorize('worker'), asyncHandler(async (req, res) => {
-    const { product, quantity } = req.body;
+    const { jobType, productDetails, quantity, workDate } = req.body;
 
     // Ensure the logged-in user is the worker creating the log
     const workerLog = await WorkerLog.create({
         worker: req.user._id, // The ID of the authenticated worker
-        product,
+        jobType,
+        productDetails,
         quantity,
+        workDate: workDate || new Date()
     });
 
     if (workerLog) {

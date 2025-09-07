@@ -21,6 +21,25 @@ const EmployeeSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    // Employee contact information
+    contact: {
+        type: String,
+        required: function() { return this.role !== 'admin'; }, // Not required for admin
+        trim: true
+    },
+    // Employee address
+    address: {
+        type: String,
+        required: function() { return this.role !== 'admin'; }, // Not required for admin
+        trim: true
+    },
+    // Employee department
+    department: {
+        type: String,
+        required: function() { return this.role !== 'admin'; }, // Not required for admin
+        enum: ['Production', 'Quality Control', 'Maintenance', 'Assembly', 'Packaging', 'Other'],
+        trim: true
+    },
     // Role of the employee (admin, worker, transporter)
     role: {
         type: String,

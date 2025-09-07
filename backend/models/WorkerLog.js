@@ -8,17 +8,40 @@ const WorkerLogSchema = new mongoose.Schema({
         ref: 'Employee', // Refers to the Employee model
         required: true
     },
-    // Name or ID of the product worked on
-    product: {
+    // Job type (Inside Job Rod, Inside Job Sleeve, Inside Job Pin)
+    jobType: {
         type: String,
-        required: true,
-        trim: true
+        enum: ['Inside Job Rod', 'Inside Job Sleeve', 'Inside Job Pin'],
+        required: true
     },
-    // Quantity of the product completed
+    // Product details based on job type
+    productDetails: {
+        // For Sleeve: code and size
+        code: {
+            type: String,
+            required: function() { return this.jobType === 'Inside Job Sleeve'; }
+        },
+        // For Rod/Pin: part name and size
+        partName: {
+            type: String,
+            required: function() { return this.jobType === 'Inside Job Rod' || this.jobType === 'Inside Job Pin'; }
+        },
+        // Size for all types
+        size: {
+            type: String,
+            required: true
+        }
+    },
+    // Quantity of parts worked on
     quantity: {
         type: Number,
         required: true,
         min: 0 // Quantity cannot be negative
+    },
+    // Date of work (separate from timestamp for filtering)
+    workDate: {
+        type: Date,
+        default: Date.now
     },
     // Timestamp of when the log was created
     timestamp: {
