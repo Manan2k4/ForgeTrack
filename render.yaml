@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: forgetrack-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: node server.js
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URLS
+        # Set your frontend origins here, comma-separated (e.g., https://admin.example.com,https://worker.example.com)
+        value: https://your-frontend.example.com
+    healthCheckPath: /api/health
