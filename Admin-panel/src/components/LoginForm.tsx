@@ -22,6 +22,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const loginHint = (import.meta as any)?.env?.VITE_LOGIN_HINT as string | undefined;
 
   useEffect(() => {
     // Try to initialize backend admin if not present
@@ -83,9 +84,11 @@ export function LoginForm({ onLogin }: LoginFormProps) {
               Login
             </Button>
           </form>
-          <div className="mt-4 text-sm text-muted-foreground">
-            <p>Default admin: admin / admin123</p>
-          </div>
+          {loginHint && (
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>{loginHint}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

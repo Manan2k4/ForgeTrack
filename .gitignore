@@ -74,3 +74,6 @@ backend/Code-component-*.tsx
 backend/models/Code-component-*.tsx
 backend/routes/Code-component-*.tsx
 backend/middleware/Code-component-*.tsx
+
+# Local admin utility scripts (untracked)
+backend/scripts/setAdmin.js
