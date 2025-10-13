@@ -2,7 +2,7 @@
   "version": 2,
   "framework": "vite",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "outputDirectory": "build",
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
