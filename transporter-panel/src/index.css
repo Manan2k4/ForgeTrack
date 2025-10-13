@@ -1,0 +1,6 @@
+/* Keep our custom globals first as required by PostCSS */
+@import './styles/globals.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

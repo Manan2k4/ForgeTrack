@@ -1,0 +1,76 @@
+# Global ignore rules for the repo
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output / caches
+build/
+dist/
+out/
+coverage/
+.vite/
+.cache/
+.turbo/
+.next/
+.nuxt/
+.svelte-kit/
+*.tsbuildinfo
+
+# Environment files (keep only template examples tracked)
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Tooling / hosting
+.vercel/
+.netlify/
+
+# Ignore duplicated legacy backend under Worker-panel (real API is at /backend)
+Worker-panel/src/backend/*
+!Worker-panel/src/backend/README.md
+
+# Ignore scaffolding code-component files under backend
+backend/Code-component-*.tsx
+backend/models/Code-component-*.tsx
+backend/routes/Code-component-*.tsx
+backend/middleware/Code-component-*.tsx

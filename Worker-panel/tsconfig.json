@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noImplicitAny": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "sonner@2.0.3": ["node_modules/sonner/index.d.ts"],
+      "next-themes@0.4.6": ["node_modules/next-themes/dist/index.d.ts"],
+      "lucide-react@0.487.0": ["node_modules/lucide-react/dist/index.d.ts"],
+      "react-hook-form@7.55.0": ["node_modules/react-hook-form/dist/index.d.ts"],
+      "react-day-picker@8.10.1": ["node_modules/react-day-picker/index.d.ts"],
+      "recharts@2.15.2": ["node_modules/recharts/types/index.d.ts"],
+      "react-resizable-panels@2.1.7": ["node_modules/react-resizable-panels/dist/index.d.ts"],
+      "@radix-ui/*": ["node_modules/@radix-ui/*"]
+    },
+    "types": ["vite/client", "react", "react-dom"]
+  },
+  "include": ["src"]
+}
