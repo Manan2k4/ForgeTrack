@@ -31,7 +31,25 @@ interface DatabaseConfig {
 // Configuration for different environments
 // Prefer environment variable (set on Netlify as VITE_API_URL)
 const mode = (import.meta as any)?.env?.MODE || (import.meta as any)?.env?.VITE_MODE || 'development';
-const resolvedApiBase = (import.meta as any)?.env?.VITE_API_URL
+
+// Allow runtime override for debugging or hot-fixing deployments:
+// - URL query param: ?api=https://your-backend/api
+// - localStorage key: API_BASE_URL
+let runtimeApiBase: string | undefined;
+try {
+  const href = typeof window !== 'undefined' ? window.location.href : '';
+  if (href) {
+    const u = new URL(href);
+    runtimeApiBase = u.searchParams.get('api') || undefined;
+  }
+  if (!runtimeApiBase && typeof window !== 'undefined') {
+    const stored = window.localStorage?.getItem('API_BASE_URL') || undefined;
+    if (stored) runtimeApiBase = stored;
+  }
+} catch {}
+
+const resolvedApiBase = runtimeApiBase
+  || (import.meta as any)?.env?.VITE_API_URL
   // Fallbacks if env var is missing
   || (mode === 'production'
       // Safe default for this project if not provided explicitly
@@ -71,6 +89,9 @@ export default config;
 export const buildUrl = (endpoint: string): string => {
   return `${config.apiBaseUrl}${endpoint}`;
 };
+
+// Expose a getter for consumers needing the base URL
+export const getApiBaseUrl = (): string => resolvedApiBase;
 
 // Connection status checker
 export const checkDatabaseConnection = async (): Promise<boolean> => {

@@ -1,5 +1,5 @@
-const API_BASE_URL = (import.meta as any)?.env?.VITE_API_URL 
-  || 'https://forgetrack-backend-wk3o.onrender.com/api';
+import { getApiBaseUrl } from '../config/database';
+const API_BASE_URL = getApiBaseUrl();
 
 interface ApiResponse<T> {
   success: boolean;
