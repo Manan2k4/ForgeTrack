@@ -22,7 +22,7 @@
       "react-resizable-panels@2.1.7": ["node_modules/react-resizable-panels/dist/index.d.ts"],
       "@radix-ui/*": ["node_modules/@radix-ui/*"]
     },
-    "types": ["vite/client", "react", "react-dom"]
+    
   },
   "include": ["src"]
 }
