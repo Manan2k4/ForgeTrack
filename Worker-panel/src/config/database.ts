@@ -29,11 +29,18 @@ interface DatabaseConfig {
 }
 
 // Configuration for different environments
+// Prefer environment variable (set on Netlify as VITE_API_URL)
+const mode = (import.meta as any)?.env?.MODE || (import.meta as any)?.env?.VITE_MODE || 'development';
+const resolvedApiBase = (import.meta as any)?.env?.VITE_API_URL
+  // Fallbacks if env var is missing
+  || (mode === 'production'
+      // Safe default for this project if not provided explicitly
+      ? 'https://forgetrack-backend-wk3o.onrender.com/api'
+      : 'http://localhost:5000/api');
+
 const config: DatabaseConfig = {
-  // Backend API URL - Update this to match your backend server
-  apiBaseUrl: process.env.NODE_ENV === 'production' 
-    ? 'https://your-backend-domain.com/api'  // Replace with your production URL
-    : 'http://localhost:5000/api',            // Development URL
+  // Backend API URL
+  apiBaseUrl: resolvedApiBase,
 
   endpoints: {
     auth: {
