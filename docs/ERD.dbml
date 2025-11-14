@@ -1,0 +1,113 @@
+// ForgeTrack ERD in DBML (for dbdiagram.io)
+// Paste this into https://dbdiagram.io to render
+
+Enum user_role {
+  admin
+  employee
+}
+
+Enum department {
+  "Sleeve Workshop"
+  "Rod/Pin Workshop"
+  "Packing"
+  "Transporter"
+}
+
+Enum product_type {
+  sleeve
+  rod
+  pin
+}
+
+Enum work_job_type {
+  rod
+  sleeve
+  pin
+}
+
+Enum transporter_job_type {
+  "outside-rod"
+  "outside-pin"
+}
+
+Table users {
+  id varchar(24) [primary key, note: 'Mongo ObjectId as string']
+  name varchar(100) [not null]
+  username varchar(30) [not null, unique]
+  password varchar [not null, note: 'hashed (bcrypt)']
+  role user_role [not null, default: 'employee']
+  contact varchar [note: 'required if role = employee']
+  address varchar [note: 'required if role = employee']
+  department department [note: 'required if role = employee']
+  is_active boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+
+  Indexes {
+    (username) [unique]
+  }
+}
+
+Table products {
+  id varchar(24) [primary key, note: 'Mongo ObjectId as string']
+  type product_type [not null]
+  code varchar [note: 'unique when type = sleeve']
+  part_name varchar [note: 'unique with type when type in (rod, pin)']
+  sizes text [note: 'array of sizes; store as JSON/text']
+  created_at timestamp
+  updated_at timestamp
+
+  Indexes {
+    (code) [unique, note: 'partial: only when type = sleeve']
+    (part_name, type) [unique, note: 'partial: only when type in (rod, pin); case-insensitive collation']
+  }
+}
+
+Table work_logs {
+  id varchar(24) [primary key, note: 'Mongo ObjectId as string']
+  employee_id varchar(24) [not null]
+  job_type work_job_type [not null]
+  product_id varchar(24) [not null]
+  part_size varchar [not null]
+  operation varchar [note: 'optional e.g., CASTING, BORE']
+  quantity int [note: 'deprecated; use total_parts']
+  total_parts int
+  rejection int [default: 0]
+  employee_name varchar [note: 'snapshot for display']
+  employee_department varchar [note: 'snapshot for display']
+  date timestamp [note: 'defaults to now']
+  work_date varchar(10) [not null, note: 'YYYY-MM-DD string']
+  created_at timestamp
+  updated_at timestamp
+
+  Indexes {
+    (employee_id, work_date)
+    (job_type, work_date)
+    (work_date)
+  }
+}
+
+Table transporter_logs {
+  id varchar(24) [primary key, note: 'Mongo ObjectId as string']
+  employee_id varchar(24) [not null]
+  job_type transporter_job_type [not null]
+  party_name varchar [not null]
+  total_parts int [not null]
+  rejection int [default: 0]
+  work_date varchar(10) [not null, note: 'YYYY-MM-DD string']
+  employee_name varchar [note: 'snapshot for display']
+  employee_department varchar [note: 'snapshot for display']
+  created_at timestamp
+  updated_at timestamp
+
+  Indexes {
+    (work_date)
+    (employee_id, work_date)
+    (party_name, work_date)
+  }
+}
+
+// Relationships
+Ref: work_logs.employee_id > users.id // many-to-one
+Ref: work_logs.product_id > products.id // many-to-one
+Ref: transporter_logs.employee_id > users.id // many-to-one
