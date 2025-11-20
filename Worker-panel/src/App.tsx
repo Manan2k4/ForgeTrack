@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { EnhancedEmployeePortal } from './components/employee/EnhancedEmployeePortal';
+import DebugOverlay from './components/DebugOverlay';
 import { EnhancedLoginForm } from './components/employee/EnhancedLoginForm';
 import { Toaster } from './components/ui/sonner';
 import { useServiceWorker } from './hooks/useServiceWorker';
@@ -144,6 +145,7 @@ export default function App() {
           },
         }}
       />
+      <DebugOverlay />
     </>
   );
 }
