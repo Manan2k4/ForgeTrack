@@ -185,6 +185,7 @@ export function TransporterLogs() {
                   <TableHead>Department</TableHead>
                   <TableHead>Job Type</TableHead>
                   <TableHead>Party</TableHead>
+                  <TableHead>Part Name</TableHead>
                   <TableHead>Total Parts</TableHead>
                   <TableHead>Rejection</TableHead>
                   <TableHead>Ok Parts</TableHead>
@@ -199,6 +200,7 @@ export function TransporterLogs() {
                     <TableCell>{log?.employeeDepartment || log?.employee?.department || '—'}</TableCell>
                     <TableCell>{log?.jobType === 'outside-rod' ? 'Outside Rod' : 'Outside Pin'}</TableCell>
                     <TableCell>{log?.partyName || '—'}</TableCell>
+                    <TableCell>{log?.partName || '—'}</TableCell>
                     <TableCell>{Number(log?.totalParts ?? log?.quantity ?? 0)}</TableCell>
                     <TableCell>{Number(log?.rejection ?? 0)}</TableCell>
                     <TableCell>{Math.max(0, Number(log?.totalParts ?? log?.quantity ?? 0) - Number(log?.rejection ?? 0))}</TableCell>
@@ -240,6 +242,15 @@ export function TransporterLogs() {
                   className="border rounded-md h-10 px-3 w-full"
                   defaultValue={editing.log.partyName}
                   onChange={(e) => setEditing(prev => ({ ...prev, log: { ...prev.log, partyName: e.target.value } }))}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Part Name</label>
+                <input
+                  type="text"
+                  className="border rounded-md h-10 px-3 w-full"
+                  defaultValue={editing.log.partName}
+                  onChange={(e) => setEditing(prev => ({ ...prev, log: { ...prev.log, partName: e.target.value } }))}
                 />
               </div>
               <div>

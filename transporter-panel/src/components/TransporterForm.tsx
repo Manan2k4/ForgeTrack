@@ -1,13 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { transporterService, TransportJob } from '../services/databaseService';
+import { buildUrl } from '../config/database';
 import { useAutoSave } from '../hooks/useAutoSave';
 import { toast } from 'sonner';
 
+interface Product { partName: string; type: string; }
+
 export function TransporterForm({ employeeId, employeeName, onComplete }: { employeeId: string; employeeName: string; onComplete: () => void; }) {
   const [jobType, setJobType] = useState<TransportJob>('outside-rod');
-  const [formData, setFormData] = useState({ partyName: '', totalParts: '', rejection: '' });
+  const [formData, setFormData] = useState({ partyName: '', partName: '', totalParts: '', rejection: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [connection, setConnection] = useState(transporterService.getConnectionStatus());
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
   // Fixed dropdown options provided by user
   const PARTY_OPTIONS: Record<TransportJob, string[]> = {
@@ -42,6 +47,36 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
     return () => clearInterval(i);
   }, []);
 
+  // Load products for rod/pin when jobType changes
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoadingProducts(true);
+      try {
+        const mapType = jobType === 'outside-rod' ? 'rod' : 'pin';
+        const token = localStorage.getItem('authToken');
+        const resp = await fetch(buildUrl(`/products?type=${mapType}`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (resp.ok) {
+          const json = await resp.json();
+          const list = (json.data || []).filter((p: any) => p.partName);
+          if (active) setProducts(list);
+        } else if (active) {
+          setProducts([]);
+        }
+      } catch {
+        if (active) setProducts([]);
+      } finally {
+        if (active) setLoadingProducts(false);
+        // Reset selected partName when switching type
+        setFormData(d => ({ ...d, partName: '' }));
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, [jobType]);
+
   // Reset party name if current selection is not available for new job type
   useEffect(() => {
     if (!PARTY_OPTIONS[jobType].includes(formData.partyName)) {
@@ -53,7 +88,7 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
     e.preventDefault();
     const total = parseInt(formData.totalParts || '0', 10);
     const rej = parseInt(formData.rejection || '0', 10);
-    if (!formData.partyName || !total || total < 1) return;
+    if (!formData.partyName || !formData.partName || !total || total < 1) return;
     if (rej < 0 || rej > total) return;
     setIsSubmitting(true);
     try {
@@ -62,6 +97,7 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
         employeeName,
         jobType,
         partyName: formData.partyName.trim(),
+        partName: formData.partName.trim(),
         totalParts: total,
         rejection: rej || 0,
         date: new Date().toISOString().split('T')[0],
@@ -96,6 +132,22 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
               <option key={p} value={p}>{p}</option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Part Name</label>
+          <select
+            className="input"
+            value={formData.partName}
+            onChange={(e) => setFormData({ ...formData, partName: e.target.value })}
+            disabled={loadingProducts || products.length === 0}
+          >
+            <option value="" disabled>Select part</option>
+            {products.map((p) => (
+              <option key={p.partName} value={p.partName}>{p.partName}</option>
+            ))}
+          </select>
+          {loadingProducts && <p className="text-xs text-gray-500 mt-1">Loading parts...</p>}
+          {!loadingProducts && products.length === 0 && <p className="text-xs text-orange-600 mt-1">No parts available for this type</p>}
         </div>
       </div>
       <div className="grid md:grid-cols-2 gap-3">

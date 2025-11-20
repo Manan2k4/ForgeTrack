@@ -8,6 +8,7 @@ interface TransportLog {
   employeeName: string;
   jobType: TransportJob;
   partyName: string;
+  partName: string; // newly added for traceability
   totalParts: number;
   rejection?: number;
   date: string;
@@ -87,6 +88,7 @@ class TransporterService {
           body: JSON.stringify({
             jobType: log.jobType,
             partyName: log.partyName,
+            partName: log.partName,
             totalParts: log.totalParts,
             rejection: log.rejection || 0,
           }),
@@ -100,6 +102,7 @@ class TransporterService {
             employeeName: log.employeeName,
             jobType: log.jobType,
             partyName: log.partyName,
+            partName: log.partName,
             totalParts: log.totalParts,
             rejection: log.rejection || 0,
             date: new Date().toISOString().split('T')[0],

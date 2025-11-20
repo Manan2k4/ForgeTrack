@@ -261,6 +261,7 @@ class ApiService {
   async createTransporterLog(data: {
     jobType: 'outside-rod' | 'outside-pin';
     partyName: string;
+    partName: string;
     totalParts: number;
     rejection?: number;
     workDate?: string; // YYYY-MM-DD
@@ -271,7 +272,7 @@ class ApiService {
     });
   }
 
-  async updateTransporterLog(id: string, data: Partial<{ totalParts: number; rejection: number; partyName: string; jobType: 'outside-rod' | 'outside-pin' }>) {
+  async updateTransporterLog(id: string, data: Partial<{ totalParts: number; rejection: number; partyName: string; jobType: 'outside-rod' | 'outside-pin'; partName: string }>) {
     return this.request<any>(`/transporter-logs/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),

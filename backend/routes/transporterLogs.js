@@ -32,6 +32,7 @@ router.get('/', auth, async (req, res) => {
       employeeDepartment: l.employee?.department || l.employeeDepartment || '—',
       jobType: l.jobType,
       partyName: l.partyName,
+      partName: l.partName || null,
       totalParts: l.totalParts,
       rejection: l.rejection || 0,
       date: l.workDate,
@@ -48,12 +49,13 @@ router.get('/', auth, async (req, res) => {
 // Create transporter log
 router.post('/', auth, async (req, res) => {
   try {
-    const { jobType, partyName, totalParts, rejection = 0 } = req.body;
+    const { jobType, partyName, totalParts, rejection = 0, partName } = req.body;
 
     if (!jobType || !['outside-rod', 'outside-pin'].includes(jobType)) {
       return res.status(400).json({ success: false, message: 'Invalid job type' });
     }
     if (!partyName) return res.status(400).json({ success: false, message: 'Party name is required' });
+    if (!partName) return res.status(400).json({ success: false, message: 'Part name is required' });
     if (typeof totalParts !== 'number' || totalParts < 1) return res.status(400).json({ success: false, message: 'Total parts must be at least 1' });
     if (rejection < 0) return res.status(400).json({ success: false, message: 'Rejection cannot be negative' });
     if (rejection > totalParts) return res.status(400).json({ success: false, message: 'Rejection cannot exceed total parts' });
@@ -66,10 +68,23 @@ router.post('/', auth, async (req, res) => {
     const today = new Date();
     const workDate = today.toISOString().split('T')[0];
 
+    // Validate partName matches an existing Product for corresponding type
+    try {
+      const Product = require('../models/Product');
+      const expectType = jobType === 'outside-rod' ? 'rod' : 'pin';
+      const productExists = await Product.findOne({ partName, type: expectType }).lean();
+      if (!productExists) {
+        return res.status(400).json({ success: false, message: 'Part name does not match any existing product' });
+      }
+    } catch (e) {
+      console.warn('Product validation failed/skipped:', e?.message);
+    }
+
     const log = new TransporterLog({
       employee: req.user._id,
       jobType,
       partyName,
+      partName,
       totalParts,
       rejection,
       workDate,
@@ -78,7 +93,7 @@ router.post('/', auth, async (req, res) => {
     });
     await log.save();
 
-    res.status(201).json({ success: true, message: 'Transporter log created', data: { id: log._id } });
+    res.status(201).json({ success: true, message: 'Transporter log created', data: { id: log._id, partName } });
   } catch (error) {
     console.error('Create transporter log error:', error);
     res.status(500).json({ success: false, message: 'Failed to create transporter log', error: error.message });
@@ -119,7 +134,7 @@ module.exports = router;
 router.patch('/:id', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { totalParts, rejection, partyName, jobType } = req.body || {};
+    const { totalParts, rejection, partyName, jobType, partName } = req.body || {};
 
     const log = await TransporterLog.findById(id);
     if (!log) return res.status(404).json({ success: false, message: 'Transporter log not found' });
@@ -134,6 +149,19 @@ router.patch('/:id', adminAuth, async (req, res) => {
     if (typeof partyName !== 'undefined') {
       if (!partyName) return res.status(400).json({ success: false, message: 'Party name cannot be empty' });
       log.partyName = partyName;
+    }
+
+    if (typeof partName !== 'undefined') {
+      if (!partName) return res.status(400).json({ success: false, message: 'Part name cannot be empty' });
+      try {
+        const Product = require('../models/Product');
+        const expectType = (log.jobType === 'outside-rod') ? 'rod' : 'pin';
+        const productExists = await Product.findOne({ partName, type: expectType }).lean();
+        if (!productExists) return res.status(400).json({ success: false, message: 'Part name not found for current job type' });
+      } catch (e) {
+        console.warn('Product validation failed during patch:', e?.message);
+      }
+      log.partName = partName;
     }
 
     if (typeof totalParts !== 'undefined') {
