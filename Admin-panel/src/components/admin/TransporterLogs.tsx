@@ -182,7 +182,6 @@ export function TransporterLogs() {
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Employee</TableHead>
-                  <TableHead>Department</TableHead>
                   <TableHead>Job Type</TableHead>
                   <TableHead>Party</TableHead>
                   <TableHead>Part Name</TableHead>
@@ -197,7 +196,6 @@ export function TransporterLogs() {
                   <TableRow key={log?.id || log?._id || idx}>
                     <TableCell>{log?.date || log?.workDate || (log?.timestamp ? String(log.timestamp).slice(0, 10) : '—')}</TableCell>
                     <TableCell>{log?.employeeName || log?.employee?.name || '—'}</TableCell>
-                    <TableCell>{log?.employeeDepartment || log?.employee?.department || '—'}</TableCell>
                     <TableCell>{log?.jobType === 'outside-rod' ? 'Outside Rod' : 'Outside Pin'}</TableCell>
                     <TableCell>{log?.partyName || '—'}</TableCell>
                     <TableCell>{log?.partName || '—'}</TableCell>
