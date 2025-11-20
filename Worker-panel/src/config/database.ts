@@ -28,33 +28,10 @@ interface DatabaseConfig {
   };
 }
 
-// Configuration for different environments
-// Prefer environment variable (set on Netlify as VITE_API_URL)
-const mode = (import.meta as any)?.env?.MODE || (import.meta as any)?.env?.VITE_MODE || 'development';
-
-// Allow runtime override for debugging or hot-fixing deployments:
-// - URL query param: ?api=https://your-backend/api
-// - localStorage key: API_BASE_URL
-let runtimeApiBase: string | undefined;
-try {
-  const href = typeof window !== 'undefined' ? window.location.href : '';
-  if (href) {
-    const u = new URL(href);
-    runtimeApiBase = u.searchParams.get('api') || undefined;
-  }
-  if (!runtimeApiBase && typeof window !== 'undefined') {
-    const stored = window.localStorage?.getItem('API_BASE_URL') || undefined;
-    if (stored) runtimeApiBase = stored;
-  }
-} catch {}
-
-const resolvedApiBase = runtimeApiBase
-  || (import.meta as any)?.env?.VITE_API_URL
-  // Fallbacks if env var is missing
-  || (mode === 'production'
-      // Safe default for this project if not provided explicitly
-      ? 'https://forgetrack-backend-wk3o.onrender.com/api'
-      : 'http://localhost:5000/api');
+// Simplified base URL resolution: environment variable or fixed fallback.
+// Removes query-param/localStorage overrides to avoid accidental misconfiguration.
+const resolvedApiBase = (import.meta as any)?.env?.VITE_API_URL
+  || 'https://forgetrack-backend-wk3o.onrender.com/api';
 
 const config: DatabaseConfig = {
   // Backend API URL
