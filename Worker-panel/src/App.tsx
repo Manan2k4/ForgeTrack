@@ -145,7 +145,7 @@ export default function App() {
           },
         }}
       />
-      <DebugOverlay />
+      {/* <DebugOverlay /> */}
     </>
   );
 }
