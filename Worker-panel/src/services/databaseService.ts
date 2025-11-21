@@ -100,6 +100,8 @@ class DatabaseService {
           }
           if (user) {
             this.cacheUser(user);
+            // Auto populate currentUser for future auto-login reuse
+            localStorage.setItem('currentUser', JSON.stringify(user));
             return user;
           }
           return null;

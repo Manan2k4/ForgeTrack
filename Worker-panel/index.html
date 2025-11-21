@@ -13,9 +13,9 @@
       <script>
         (function(){
           try {
-            var userStr = localStorage.getItem('currentUser');
             var token = localStorage.getItem('authToken');
-            if(!userStr || !token){ return; }
+            var existingUser = localStorage.getItem('currentUser');
+            if(!token){ return; }
             var apiBase = (window.__API_BASE__ || 'https://forgetrack-backend-wk3o.onrender.com/api');
             var controller = new AbortController();
             var timeout = setTimeout(function(){ controller.abort(); }, 2500);
@@ -25,11 +25,20 @@
                 if(!r.ok){
                   localStorage.removeItem('currentUser');
                   localStorage.removeItem('authToken');
-                  // Immediate redirect to login
                   if(location.pathname !== '/login'){ location.replace('/login'); }
+                  return;
+                }
+                return r.json();
+              })
+              .then(function(payload){
+                if(!payload || !payload.success || !payload.data || !payload.data.user) return;
+                // If we had no currentUser but token valid, auto-login silently
+                if(!existingUser){
+                  localStorage.setItem('currentUser', JSON.stringify(payload.data.user));
+                  if(location.pathname === '/login'){ location.replace('/work'); }
                 }
               })
-              .catch(function(){ /* On timeout or network error we allow React to retry later */ });
+              .catch(function(){ /* network timeout; React will retry later */ });
           } catch(e){ /* swallow */ }
         })();
       </script>
