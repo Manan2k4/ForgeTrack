@@ -9,6 +9,30 @@
 
     <body>
       <div id="root"></div>
+      <!-- Early auth validation: runs before React mounts -->
+      <script>
+        (function(){
+          try {
+            var userStr = localStorage.getItem('currentUser');
+            var token = localStorage.getItem('authToken');
+            if(!userStr || !token){ return; }
+            var apiBase = (window.__API_BASE__ || 'https://forgetrack-backend-wk3o.onrender.com/api');
+            var controller = new AbortController();
+            var timeout = setTimeout(function(){ controller.abort(); }, 2500);
+            fetch(apiBase + '/auth/me', { headers:{ 'Authorization':'Bearer ' + token }, signal: controller.signal })
+              .then(function(r){
+                clearTimeout(timeout);
+                if(!r.ok){
+                  localStorage.removeItem('currentUser');
+                  localStorage.removeItem('authToken');
+                  // Immediate redirect to login
+                  if(location.pathname !== '/login'){ location.replace('/login'); }
+                }
+              })
+              .catch(function(){ /* On timeout or network error we allow React to retry later */ });
+          } catch(e){ /* swallow */ }
+        })();
+      </script>
       <script type="module" src="/src/main.tsx"></script>
     </body>
   </html>

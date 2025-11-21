@@ -86,9 +86,18 @@ export default function App() {
           : 'Your session is no longer valid. Please log in again.');
       }
     };
-    // Run immediately and then every 60s while online
+    // Run immediately
     verify();
-    timer = setInterval(verify, 60000);
+    // Rapid checks for first minute (every 10s) to catch recent deactivation fast
+    let rapidCount = 0;
+    timer = setInterval(() => {
+      rapidCount++;
+      verify();
+      if (rapidCount >= 6) { // after ~60s switch to slow interval
+        clearInterval(timer);
+        timer = setInterval(verify, 60000); // regular 60s heartbeat
+      }
+    }, 10000);
     return () => clearInterval(timer);
   }, [currentUser]);
 

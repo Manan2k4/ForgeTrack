@@ -122,9 +122,13 @@ class DatabaseService {
     if (!token) return { valid: false, reason: 'no-token' };
     if (!this.isDatabaseConnected) return { valid: true };
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2500);
       const res = await fetch(buildUrl('/auth/me'), {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: controller.signal
       });
+      clearTimeout(timeout);
       if (res.ok) return { valid: true };
       // 401 invalid or expired, 403 deactivated
       if (res.status === 403) return { valid: false, reason: 'deactivated' };
