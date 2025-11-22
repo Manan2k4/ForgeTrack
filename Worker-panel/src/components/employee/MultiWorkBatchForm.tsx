@@ -115,6 +115,13 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
     return { errors, valid: errors.length === 0 };
   };
 
+  // Light-weight check for enabling submit without full validation spam
+  const canSubmit = entries.length > 0 && entries.every(e => {
+    const total = parseInt(e.totalParts);
+    const rej = e.rejection ? parseInt(e.rejection) : 0;
+    return e.selectedItem && (e.partSize || e.specialSize) && !isNaN(total) && total > 0 && rej >= 0 && rej <= total && (operationOptions.length === 0 || e.operation);
+  });
+
   const startReview = () => {
     const { errors, valid } = validateEntries();
     if (!valid) {
@@ -247,11 +254,11 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
               </Card>
             );
           })}
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={addEntry} className="h-10"><Plus className="w-4 h-4 mr-1" /> Add Entry</Button>
-            <Button type="button" onClick={startReview} className="h-10 bg-green-600 hover:bg-green-700"><Eye className="w-4 h-4 mr-1" /> Review</Button>
-            <Button type="button" onClick={directSubmit} className="h-10 bg-blue-600 hover:bg-blue-700"><CheckCircle2 className="w-4 h-4 mr-1" /> {entries.length === 1 ? 'Submit Entry' : 'Submit All'}</Button>
-            <Button type="button" variant="outline" onClick={onComplete} className="h-10">Cancel</Button>
+          <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={addEntry} className="h-11 w-full sm:w-auto"><Plus className="w-4 h-4 mr-1" /> Add Entry</Button>
+            <Button type="button" onClick={startReview} className="h-11 w-full sm:w-auto bg-green-600 hover:bg-green-700" disabled={!canSubmit}><Eye className="w-4 h-4 mr-1" /> Review</Button>
+            <Button type="button" onClick={directSubmit} className="h-11 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50" disabled={!canSubmit}><CheckCircle2 className="w-4 h-4 mr-1" /> {entries.length === 1 ? 'Submit Entry' : 'Submit All'}</Button>
+            <Button type="button" variant="outline" onClick={onComplete} className="h-11 w-full sm:w-auto">Cancel</Button>
           </div>
         </CardContent>
       </Card>
@@ -283,9 +290,9 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
                 </div>
               );
             })}
-            <div className="flex gap-2 pt-2">
-              <Button onClick={confirmSubmit} className="flex-1 bg-green-600 hover:bg-green-700"><CheckCircle2 className="w-4 h-4 mr-1" /> Confirm Submit</Button>
-              <Button variant="outline" onClick={() => setShowReview(false)} className="flex-1">Back</Button>
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <Button onClick={confirmSubmit} className="flex-1 h-11 bg-green-600 hover:bg-green-700"><CheckCircle2 className="w-4 h-4 mr-1" /> Confirm Submit</Button>
+              <Button variant="outline" onClick={() => setShowReview(false)} className="flex-1 h-11">Back</Button>
             </div>
           </CardContent>
         </Card>
