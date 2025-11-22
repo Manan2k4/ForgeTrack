@@ -142,8 +142,8 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
 
   const submitEnabled = canSubmit && !isSubmitting;
   const submitButtonClasses = submitEnabled
-    ? 'h-11 w-full sm:w-auto bg-blue-600 text-white hover:bg-blue-700 transition-colors'
-    : 'h-11 w-full sm:w-auto bg-gray-200 text-gray-600 border border-gray-300 cursor-not-allowed';
+    ? 'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-1 bg-blue-600 text-white font-medium rounded-md border border-blue-600 hover:bg-blue-700 active:scale-[0.98] shadow-md transition-colors'
+    : 'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-1 bg-gray-200 text-gray-700 font-medium rounded-md border border-gray-300 cursor-not-allowed shadow-xs';
 
   // startReview removed (no review step)
 
@@ -279,12 +279,19 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
             <Button type="button" variant="outline" onClick={addEntry} className="h-11 w-full sm:w-auto"><Plus className="w-4 h-4 mr-1" /> Add Entry</Button>
             <Button
               type="button"
-              onClick={submitEnabled ? directSubmit : undefined}
-              className={submitButtonClasses}
+              // always attach handler; guard inside directSubmit already
+              onClick={directSubmit}
+              variant={submitEnabled ? 'default' : 'outline'}
+              className={submitButtonClasses + ' relative'}
               disabled={!submitEnabled}
               aria-disabled={!submitEnabled}
+              style={{ opacity: 1 }}
             >
-              <CheckCircle2 className="w-4 h-4 mr-1" /> {isSubmitting ? 'Submitting…' : 'Submit'}
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{isSubmitting ? 'Submitting…' : 'Submit'}</span>
+              {!submitEnabled && !isSubmitting && (
+                <span className="absolute inset-0 pointer-events-none border-2 border-dashed border-blue-300 rounded-md" aria-hidden="true"></span>
+              )}
             </Button>
             <Button type="button" variant="outline" onClick={onComplete} className="h-11 w-full sm:w-auto">Cancel</Button>
             {!submitEnabled && disabledReason && (
