@@ -1,6 +1,60 @@
 const express = require('express');
 const WorkLog = require('../models/WorkLog');
 const { auth, adminAuth } = require('../middleware/auth');
+const jwt = require('jsonwebtoken');
+
+// In-memory SSE client list
+const workLogClients = [];
+function broadcastWorkLog(eventType, payload) {
+  const data = JSON.stringify({ type: eventType, ...payload });
+  workLogClients.forEach(c => {
+    try {
+      c.res.write(`event: workLog\n`);
+      c.res.write(`data: ${data}\n\n`);
+    } catch (e) {
+      // If write fails, mark for removal
+      c.dead = true;
+    }
+  });
+  // Cleanup dead clients
+  for (let i = workLogClients.length - 1; i >= 0; i--) {
+    if (workLogClients[i].dead) workLogClients.splice(i, 1);
+  }
+}
+
+// SSE stream for admin panel real-time updates
+router.get('/stream', async (req, res) => {
+  const token = req.query.token;
+  if (!token) return res.status(401).end();
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'changeme');
+    if (!decoded || decoded.role !== 'admin') return res.status(403).end();
+  } catch (e) {
+    return res.status(401).end();
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  // CORS (adjust origin in production if needed)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders && res.flushHeaders();
+
+  const clientId = Date.now() + Math.random();
+  workLogClients.push({ id: clientId, res });
+  res.write(`event: init\n`);
+  res.write(`data: {"ok":true}\n\n`);
+
+  const heartbeat = setInterval(() => {
+    try { res.write(`event: heartbeat\ndata: {}\n\n`); } catch { /* ignore */ }
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    const idx = workLogClients.findIndex(c => c.id === clientId);
+    if (idx >= 0) workLogClients.splice(idx, 1);
+  });
+});
 const router = express.Router();
 
 // Get work logs (admin gets all, employees get their own)
@@ -135,6 +189,8 @@ router.post('/', auth, async (req, res) => {
       timestamp: workLog.createdAt
     };
     res.status(201).json({ success: true, message: 'Work log created successfully', data: formattedLog });
+    // Broadcast create event
+    broadcastWorkLog('created', { log: formattedLog });
   } catch (error) {
     console.error('Create work log error:', error);
     if (error.name === 'ValidationError') {
@@ -320,6 +376,16 @@ router.patch('/:id', adminAuth, async (req, res) => {
 
     await log.save();
 
+    // Broadcast update event (minimal payload)
+    broadcastWorkLog('updated', { log: {
+      id: log._id,
+      totalParts: log.totalParts ?? log.quantity ?? 0,
+      rejection: log.rejection ?? 0,
+      partSize: log.partSize || null,
+      specialSize: log.specialSize || null,
+      operation: log.operation || null
+    }});
+
     return res.json({ success: true, message: 'Work log updated' });
   } catch (error) {
     console.error('Update work log error:', error);
@@ -333,6 +399,8 @@ router.delete('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     const deleted = await WorkLog.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ success: false, message: 'Work log not found' });
+    // Broadcast delete event
+    broadcastWorkLog('deleted', { id });
     return res.json({ success: true, message: 'Work log deleted' });
   } catch (error) {
     console.error('Delete work log error:', error);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -38,6 +38,61 @@ export function ViewLogs() {
 
   useEffect(() => {
     loadWorkLogs();
+  }, []);
+
+  // SSE real-time subscription
+  const eventSourceRef = useRef<EventSource | null>(null);
+  useEffect(() => {
+    // Establish stream only once
+    if (eventSourceRef.current) return;
+    const userData = localStorage.getItem('currentUser');
+    let token: string | null = null;
+    try { if (userData) token = JSON.parse(userData)?.token; } catch {}
+    if (!token) token = localStorage.getItem('authToken');
+    if (!token) return; // cannot subscribe without token
+    const base = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const es = new EventSource(`${base}/work-logs/stream?token=${token}`);
+    eventSourceRef.current = es;
+
+    es.addEventListener('workLog', (evt: MessageEvent) => {
+      try {
+        const parsed = JSON.parse(evt.data);
+        if (parsed.type === 'created' && parsed.log) {
+          setWorkLogs(prev => {
+            if (prev.some(l => l.id === parsed.log.id)) return prev;
+            const merged = [parsed.log, ...prev];
+            // Sort by timestamp desc
+            merged.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            return merged as any;
+          });
+        } else if (parsed.type === 'updated' && parsed.log) {
+          setWorkLogs(prev => prev.map(l => l.id === parsed.log.id ? { ...l, ...parsed.log } : l));
+        } else if (parsed.type === 'deleted' && parsed.id) {
+          setWorkLogs(prev => prev.filter(l => l.id !== parsed.id));
+        }
+      } catch (e) {
+        console.warn('Failed to process workLog event', e);
+      }
+    });
+
+    es.addEventListener('heartbeat', () => {/* keep-alive */});
+    es.onerror = () => {
+      // Attempt simple reconnect after delay
+      es.close();
+      eventSourceRef.current = null;
+      setTimeout(() => {
+        // will re-run effect and establish connection
+        if (!eventSourceRef.current) {
+          // trigger by calling loadWorkLogs (not required but refresh data)
+          loadWorkLogs();
+        }
+      }, 5000);
+    };
+
+    return () => {
+      es.close();
+      eventSourceRef.current = null;
+    };
   }, []);
 
   useEffect(() => {

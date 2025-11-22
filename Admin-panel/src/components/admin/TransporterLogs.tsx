@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -31,6 +31,62 @@ export function TransporterLogs() {
   useEffect(() => {
     loadEmployees();
     loadData();
+  }, []);
+
+  // SSE real-time subscription for transporter logs (admin monitoring)
+  const transporterEsRef = useRef<EventSource | null>(null);
+  useEffect(() => {
+    if (transporterEsRef.current) return; // already connected
+    // attempt token retrieval similar to work logs component
+    const userData = localStorage.getItem('currentUser');
+    let token: string | null = null;
+    try { if (userData) token = JSON.parse(userData)?.token; } catch {}
+    if (!token) token = localStorage.getItem('authToken');
+    if (!token) return; // cannot subscribe without token
+    const base = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const es = new EventSource(`${base}/transporter-logs/stream?token=${token}`);
+    transporterEsRef.current = es;
+
+    const applyRealtime = (eventType: string, payload: any) => {
+      setLogs(prev => {
+        if (eventType === 'created' && payload) {
+          if (prev.some(l => (l.id || l._id) === payload.id)) return prev; // dedupe
+          return [payload, ...prev];
+        } else if (eventType === 'updated' && payload) {
+          return prev.map(l => ((l.id || l._id) === payload.id ? { ...l, ...payload } : l));
+        } else if (eventType === 'deleted' && payload?.id) {
+          return prev.filter(l => (l.id || l._id) !== payload.id);
+        }
+        return prev;
+      });
+    };
+
+    es.addEventListener('message', (evt: MessageEvent) => {
+      try {
+        const parsed = JSON.parse(evt.data);
+        if (parsed.eventType === 'heartbeat') return; // ignore
+        applyRealtime(parsed.eventType, parsed.data);
+      } catch (e) {
+        console.warn('Failed to process transporter SSE event', e);
+      }
+    });
+
+    es.onerror = () => {
+      es.close();
+      transporterEsRef.current = null;
+      // attempt reconnect after delay
+      setTimeout(() => {
+        if (!transporterEsRef.current) {
+          // trigger effect re-run by calling loadData (ensures fresh baseline)
+          loadData();
+        }
+      }, 5000);
+    };
+
+    return () => {
+      es.close();
+      transporterEsRef.current = null;
+    };
   }, []);
 
   const loadEmployees = async () => {
@@ -82,6 +138,18 @@ export function TransporterLogs() {
       setLoading(false);
     }
   };
+
+  // Recompute stats when logs change via SSE (approximate; keeps parties count fresh)
+  useEffect(() => {
+    if (loading) return; // avoid flicker during bulk load
+    const partiesSet = new Set<string>();
+    logs.forEach((l: any) => { if (l?.partyName) partiesSet.add(String(l.partyName)); });
+    const uniquePartiesCount = partiesSet.size;
+    const totalLogs = logs.length;
+    const totalParts = logs.reduce((sum, l: any) => sum + Number(l.totalParts || 0), 0);
+    const totalRejection = logs.reduce((sum, l: any) => sum + Number(l.rejection || 0), 0);
+    setStats(prev => ({ ...prev, uniquePartiesCount, totalLogs, totalParts, totalRejection }));
+  }, [logs]);
 
   const uniqueParties = useMemo(() => {
     const set = new Set<string>();

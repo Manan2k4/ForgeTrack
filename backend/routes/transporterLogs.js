@@ -3,6 +3,62 @@ const { auth, adminAuth } = require('../middleware/auth');
 const TransporterLog = require('../models/TransporterLog');
 const router = express.Router();
 
+// --- SSE client registry for transporter logs ---
+const transporterSseClients = [];
+
+function formatTransporterLog(doc) {
+  if (!doc) return null;
+  return {
+    id: doc._id,
+    employeeId: doc.employee?._id,
+    employeeName: doc.employee?.name || doc.employeeName || 'Former Employee',
+    employeeDepartment: doc.employee?.department || doc.employeeDepartment || '—',
+    jobType: doc.jobType,
+    partyName: doc.partyName,
+    partName: doc.partName || null,
+    totalParts: doc.totalParts,
+    rejection: doc.rejection || 0,
+    date: doc.workDate,
+    timestamp: doc.createdAt,
+  };
+}
+
+function broadcastTransporterLog(eventType, payload) {
+  const dataString = JSON.stringify({ eventType, data: payload });
+  transporterSseClients.forEach((res) => {
+    try {
+      res.write(`event: message\n`);
+      res.write(`data: ${dataString}\n\n`);
+    } catch (e) {
+      // Ignore broken pipe errors; clients cleaned elsewhere
+    }
+  });
+}
+
+// SSE stream endpoint (admin only for monitoring)
+router.get('/stream', adminAuth, (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders && res.flushHeaders();
+
+  transporterSseClients.push(res);
+
+  // Initial ack
+  res.write('event: message\n');
+  res.write('data: {"eventType":"init","data":"transporter-stream-connected"}\n\n');
+
+  req.on('close', () => {
+    const idx = transporterSseClients.indexOf(res);
+    if (idx !== -1) transporterSseClients.splice(idx, 1);
+  });
+});
+
+// Heartbeat every 25s
+setInterval(() => {
+  broadcastTransporterLog('heartbeat', 'ping');
+}, 25000);
+
 // List transporter logs (admin gets all, employees get own)
 router.get('/', auth, async (req, res) => {
   try {
@@ -92,6 +148,9 @@ router.post('/', auth, async (req, res) => {
       employeeDepartment: req.user.department,
     });
     await log.save();
+    // populate employee snapshot for streaming payload
+    await log.populate('employee', 'name department');
+    broadcastTransporterLog('created', formatTransporterLog(log));
 
     res.status(201).json({ success: true, message: 'Transporter log created', data: { id: log._id, partName } });
   } catch (error) {
@@ -183,6 +242,8 @@ router.patch('/:id', adminAuth, async (req, res) => {
     }
 
     await log.save();
+    await log.populate('employee', 'name department');
+    broadcastTransporterLog('updated', formatTransporterLog(log));
     return res.json({ success: true, message: 'Transporter log updated' });
   } catch (error) {
     console.error('Update transporter log error:', error);
@@ -196,6 +257,7 @@ router.delete('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     const deleted = await TransporterLog.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ success: false, message: 'Transporter log not found' });
+    broadcastTransporterLog('deleted', { id });
     return res.json({ success: true, message: 'Transporter log deleted' });
   } catch (error) {
     console.error('Delete transporter log error:', error);
