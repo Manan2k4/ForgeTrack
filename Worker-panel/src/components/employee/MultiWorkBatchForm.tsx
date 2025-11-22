@@ -143,7 +143,7 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
   const submitEnabled = canSubmit && !isSubmitting;
   // Simplified submit button styling: always a solid green when enabled, gray when disabled
   const submitButtonClasses = submitEnabled
-    ? 'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-green-600 text-white font-medium rounded-md border border-green-600 hover:bg-green-700 active:scale-[0.97] shadow-md'
+    ? 'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-green-600 text-black font-semibold rounded-md border border-green-600 hover:bg-green-500 active:scale-[0.97] shadow-md'
     : 'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gray-200 text-gray-600 font-medium rounded-md border border-gray-300 cursor-not-allowed shadow-xs';
 
   // startReview removed (no review step)
@@ -283,11 +283,11 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
               onClick={directSubmit}
               disabled={!submitEnabled}
               aria-disabled={!submitEnabled}
-              className={submitEnabled ? submitButtonClasses + ' submit-active' : submitButtonClasses}
+              className={submitButtonClasses}
               data-state={submitEnabled ? 'active' : 'disabled'}
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{isSubmitting ? 'Submitting…' : 'Submit'}</span>
+              <span className="text-black">{isSubmitting ? 'Submitting…' : 'Submit'}</span>
             </button>
             <Button type="button" variant="outline" onClick={onComplete} className="h-11 w-full sm:w-auto">Cancel</Button>
             {!submitEnabled && disabledReason && (
