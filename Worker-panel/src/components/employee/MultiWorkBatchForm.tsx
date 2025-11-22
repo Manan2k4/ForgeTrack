@@ -28,6 +28,7 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
   const [hasDraft, setHasDraft] = useState(false);
   const draftKey = `multiWorkBatchDraft_${jobType}_${employeeId}`;
   const [reviewCollapsed, setReviewCollapsed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function createEmptyEntry(): Entry { return { id: Date.now().toString() + Math.random(), selectedItem: '', partSize: '', specialSize: '', totalParts: '', rejection: '', operation: '' }; }
 
@@ -133,10 +134,12 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
   };
 
   const confirmSubmit = async () => {
+    if (isSubmitting) return; // guard against double-trigger
+    setIsSubmitting(true);
     setShowReview(false);
     const users = JSON.parse(localStorage.getItem('users') || '[]');
     const employee = users.find((u: any) => u.id === employeeId);
-    if (!employee) { toast.error('Employee not found'); return; }
+    if (!employee) { toast.error('Employee not found'); setIsSubmitting(false); return; }
 
     let successCount = 0;
     for (const entry of entries) {
@@ -165,10 +168,12 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
     toast.success(`Submitted ${successCount}/${entries.length} work logs`, { icon: '✅' });
     setEntries([createEmptyEntry()]);
     onComplete();
+    setIsSubmitting(false);
   };
 
   // Direct submit without review (single or multi)
   const directSubmit = async () => {
+    if (isSubmitting) return; // ignore rapid re-clicks
     const { errors, valid } = validateEntries();
     if (!valid) {
       toast.error('Fix errors before submitting');
@@ -259,7 +264,7 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
           <div className="flex flex-col sm:flex-row flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={addEntry} className="h-11 w-full sm:w-auto"><Plus className="w-4 h-4 mr-1" /> Add Entry</Button>
             <Button type="button" onClick={startReview} className="h-11 w-full sm:w-auto bg-green-600 hover:bg-green-700" disabled={!canSubmit}><Eye className="w-4 h-4 mr-1" /> Review</Button>
-            <Button type="button" onClick={directSubmit} className="h-11 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50" disabled={!canSubmit}><CheckCircle2 className="w-4 h-4 mr-1" /> Submit</Button>
+            <Button type="button" onClick={directSubmit} className="h-11 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50" disabled={!canSubmit || isSubmitting}><CheckCircle2 className="w-4 h-4 mr-1" /> {isSubmitting ? 'Submitting…' : 'Submit'}</Button>
             <Button type="button" variant="outline" onClick={onComplete} className="h-11 w-full sm:w-auto">Cancel</Button>
           </div>
         </CardContent>
