@@ -277,39 +277,18 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
             );
           })}
           <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-            {/* Add Entry keeps outline but same dimensions */}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={addEntry}
-              className="h-11 w-full sm:w-auto inline-flex items-center justify-center gap-2 font-medium rounded-md border border-green-600 text-green-700 hover:bg-green-50"
-            >
-              <Plus className="w-4 h-4 mr-1" /> Add Entry
-            </Button>
-            {/* Submit button - force explicit white text when enabled */}
+            <Button type="button" variant="outline" onClick={addEntry} className="h-11 w-full sm:w-auto"><Plus className="w-4 h-4 mr-1" /> Add Entry</Button>
             <button
               type="button"
               onClick={directSubmit}
               disabled={!submitEnabled}
               aria-disabled={!submitEnabled}
-              className={submitEnabled ?
-                'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-green-600 text-white font-semibold rounded-md border border-green-600 hover:bg-green-700 active:scale-[0.97] shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500'
-                :
-                'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gray-200 text-gray-600 font-medium rounded-md border border-gray-300 cursor-not-allowed shadow-xs'
-              }
-              style={submitEnabled ? { color: '#FFFFFF' } : undefined}
+              className={submitButtonClasses}
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span style={submitEnabled ? { color: '#FFFFFF' } : undefined}>{isSubmitting ? 'Submitting…' : 'Submit'}</span>
+              <span>{isSubmitting ? 'Submitting…' : 'Submit'}</span>
             </button>
-            {/* Cancel button styled green for parity (unless user prefers outline) */}
-            <button
-              type="button"
-              onClick={onComplete}
-              className="h-11 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-green-600 text-white font-medium rounded-md border border-green-600 hover:bg-green-700 active:scale-[0.97] shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-            >
-              Cancel
-            </button>
+            <Button type="button" variant="outline" onClick={onComplete} className="h-11 w-full sm:w-auto">Cancel</Button>
             {!submitEnabled && disabledReason && (
               <div className="text-xs text-red-600 w-full sm:w-auto" role="alert">
                 {disabledReason}

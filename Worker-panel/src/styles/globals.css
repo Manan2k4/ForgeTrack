@@ -194,7 +194,14 @@ html {
     background-color: #ffffff;
     color: #111111;
   }
+  /* Avoid forcing all button text white; it made outline buttons invisible */
   button {
+    color: var(--foreground);
+  }
+  /* Explicit white text for solid green or primary style buttons */
+  button.bg-green-600,
+  button[class*="bg-green"],
+  .btn-solid {
     color: #ffffff;
   }
 }
