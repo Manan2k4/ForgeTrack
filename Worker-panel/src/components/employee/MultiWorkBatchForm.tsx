@@ -142,8 +142,8 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
 
   const submitEnabled = canSubmit && !isSubmitting;
   const submitButtonClasses = submitEnabled
-    ? 'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-1 bg-blue-600 text-white font-medium rounded-md border border-blue-600 hover:bg-blue-700 active:scale-[0.98] shadow-md transition-colors'
-    : 'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-1 bg-gray-200 text-gray-700 font-medium rounded-md border border-gray-300 cursor-not-allowed shadow-xs';
+    ? 'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-green-600 text-white font-bold tracking-wide rounded-md border border-green-700 hover:bg-green-700 active:scale-[0.97] shadow-md transition-colors'
+    : 'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gray-300 text-gray-700 font-medium rounded-md border border-gray-400 cursor-not-allowed shadow-xs';
 
   // startReview removed (no review step)
 
@@ -283,13 +283,13 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
               disabled={!submitEnabled}
               aria-disabled={!submitEnabled}
               data-state={submitEnabled ? 'enabled' : 'disabled'}
-              className={submitButtonClasses + ' relative focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-blue-500/50'}
+              className={submitButtonClasses + ' relative focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-green-500/50'}
               style={{display:'inline-flex'}}
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{isSubmitting ? 'Submitting…' : 'Submit'}</span>
+              <CheckCircle2 className="w-5 h-5" />
+              <span className="uppercase">{isSubmitting ? 'Submitting…' : 'Submit'}</span>
               {!submitEnabled && !isSubmitting && (
-                <span className="absolute inset-0 pointer-events-none border-2 border-dashed border-blue-300 rounded-md" aria-hidden="true"></span>
+                <span className="absolute inset-0 pointer-events-none border-2 border-dashed border-green-300 rounded-md" aria-hidden="true"></span>
               )}
             </button>
             <Button type="button" variant="outline" onClick={onComplete} className="h-11 w-full sm:w-auto">Cancel</Button>
