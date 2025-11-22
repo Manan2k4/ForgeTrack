@@ -100,7 +100,7 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
     setAvailableSizesMap(map);
   }, [entries, products, jobType]);
 
-  const validateEntries = () => {
+  const validateEntries = (): { errors: string[]; valid: boolean } => {
     const errors: string[] = [];
     entries.forEach((e, idx) => {
       if (!e.selectedItem) errors.push(`Entry ${idx + 1}: missing ${getItemLabel().toLowerCase()}`);
@@ -112,14 +112,14 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
       if (!isNaN(total) && rej > total) errors.push(`Entry ${idx + 1}: rejection exceeds total`);
       if (operationOptions.length > 0 && !e.operation) errors.push(`Entry ${idx + 1}: missing job type (operation)`);
     });
-    return errors;
+    return { errors, valid: errors.length === 0 };
   };
 
   const startReview = () => {
-    const errs = validateEntries();
-    if (errs.length > 0) {
+    const { errors, valid } = validateEntries();
+    if (!valid) {
       toast.error('Please fix errors before review');
-      errs.slice(0, 4).forEach(m => toast.message(m));
+      errors.slice(0, 4).forEach(m => toast.message(m));
       return;
     }
     setShowReview(true);
@@ -158,6 +158,17 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
     toast.success(`Submitted ${successCount}/${entries.length} work logs`, { icon: '✅' });
     setEntries([createEmptyEntry()]);
     onComplete();
+  };
+
+  // Direct submit without review (single or multi)
+  const directSubmit = async () => {
+    const { errors, valid } = validateEntries();
+    if (!valid) {
+      toast.error('Fix errors before submitting');
+      errors.slice(0, 4).forEach(m => toast.message(m));
+      return;
+    }
+    await confirmSubmit();
   };
 
   return (
@@ -236,9 +247,10 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
               </Card>
             );
           })}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={addEntry} className="h-10"><Plus className="w-4 h-4 mr-1" /> Add Entry</Button>
-            <Button type="button" onClick={startReview} className="h-10 bg-green-600 hover:bg-green-700"><Eye className="w-4 h-4 mr-1" /> Review & Submit</Button>
+            <Button type="button" onClick={startReview} className="h-10 bg-green-600 hover:bg-green-700"><Eye className="w-4 h-4 mr-1" /> Review</Button>
+            <Button type="button" onClick={directSubmit} className="h-10 bg-blue-600 hover:bg-blue-700"><CheckCircle2 className="w-4 h-4 mr-1" /> {entries.length === 1 ? 'Submit Entry' : 'Submit All'}</Button>
             <Button type="button" variant="outline" onClick={onComplete} className="h-10">Cancel</Button>
           </div>
         </CardContent>
