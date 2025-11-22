@@ -283,7 +283,8 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
               onClick={directSubmit}
               disabled={!submitEnabled}
               aria-disabled={!submitEnabled}
-              className={submitButtonClasses}
+              className={submitEnabled ? submitButtonClasses + ' submit-active' : submitButtonClasses}
+              data-state={submitEnabled ? 'active' : 'disabled'}
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{isSubmitting ? 'Submitting…' : 'Submit'}</span>

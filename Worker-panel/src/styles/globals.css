@@ -204,4 +204,9 @@ html {
   .btn-solid {
     color: #ffffff;
   }
+  /* Submit active override to guarantee visibility */
+  button.submit-active span,
+  button.submit-active {
+    color: #ffffff !important;
+  }
 }
