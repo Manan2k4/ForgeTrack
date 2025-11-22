@@ -74,70 +74,38 @@ router.get('/', auth, async (req, res) => {
 // Create new work log
 router.post('/', auth, async (req, res) => {
   try {
-  const { productId, partSize, operation } = req.body;
-  // Support new fields with backward compatibility
-  const totalParts = typeof req.body.totalParts === 'number' ? req.body.totalParts : (typeof req.body.quantity === 'number' ? req.body.quantity : undefined);
-  const rejection = typeof req.body.rejection === 'number' ? req.body.rejection : 0;
+    let { productId, partSize, specialSize, operation } = req.body;
+    const totalParts = typeof req.body.totalParts === 'number' ? req.body.totalParts : (typeof req.body.quantity === 'number' ? req.body.quantity : undefined);
+    const rejection = typeof req.body.rejection === 'number' ? req.body.rejection : 0;
 
-    // Validation
-    if (!productId || !partSize || typeof totalParts === 'undefined') {
-      return res.status(400).json({
-        success: false,
-        message: 'Product, part size, and total parts are required'
-      });
+    partSize = partSize && String(partSize).trim() !== '' ? String(partSize).trim() : undefined;
+    specialSize = specialSize && String(specialSize).trim() !== '' ? String(specialSize).trim() : undefined;
+
+    if (!productId || typeof totalParts === 'undefined' || (!partSize && !specialSize)) {
+      return res.status(400).json({ success: false, message: 'Product, total parts and at least one size (part or special) are required' });
     }
+    if (totalParts < 1) return res.status(400).json({ success: false, message: 'Total parts must be at least 1' });
+    if (rejection < 0) return res.status(400).json({ success: false, message: 'Rejection cannot be negative' });
+    if (rejection > totalParts) return res.status(400).json({ success: false, message: 'Rejection cannot exceed total parts' });
 
-    if (totalParts < 1) {
-      return res.status(400).json({
-        success: false,
-        message: 'Total parts must be at least 1'
-      });
-    }
-
-    if (rejection < 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Rejection cannot be negative'
-      });
-    }
-
-    if (rejection > totalParts) {
-      return res.status(400).json({
-        success: false,
-        message: 'Rejection cannot exceed total parts'
-      });
-    }
-
-    // Get product to determine job type
     const Product = require('../models/Product');
     const product = await Product.findById(productId);
-    
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found'
-      });
-    }
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
 
-    // Accept custom part sizes: if not present, append to product.sizes for future reuse
-    if (!product.sizes.includes(partSize)) {
+    // Dynamically append normal partSize if new
+    if (partSize && !product.sizes.includes(partSize)) {
       product.sizes.push(partSize);
-      try {
-        await product.save();
-      } catch (e) {
-        console.warn('Failed to append custom size to product', e);
-      }
+      try { await product.save(); } catch (e) { console.warn('Failed to append size', e); }
     }
 
-    // Create work log
     const today = new Date();
-    const workDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-
+    const workDate = today.toISOString().split('T')[0];
     const workLog = new WorkLog({
       employee: req.user._id,
       jobType: product.type,
       product: productId,
-      partSize,
+      partSize: partSize || null,
+      specialSize: specialSize || null,
       operation: operation || undefined,
       totalParts,
       rejection,
@@ -145,14 +113,10 @@ router.post('/', auth, async (req, res) => {
       employeeName: req.user.name,
       employeeDepartment: req.user.department
     });
-
     await workLog.save();
-
-    // Populate the response
     await workLog.populate('employee', 'name username department');
     await workLog.populate('product', 'type code partName');
 
-    // Format response
     const formattedLog = {
       id: workLog._id,
       employeeId: workLog.employee._id,
@@ -161,36 +125,22 @@ router.post('/', auth, async (req, res) => {
       jobType: workLog.jobType,
       code: workLog.product.code,
       partName: workLog.product.partName,
-      partSize: workLog.partSize,
+      partSize: workLog.partSize || null,
+      specialSize: workLog.specialSize || null,
       operation: workLog.operation,
       totalParts: typeof workLog.totalParts === 'number' ? workLog.totalParts : (typeof workLog.quantity === 'number' ? workLog.quantity : 0),
       rejection: typeof workLog.rejection === 'number' ? workLog.rejection : 0,
       date: workLog.workDate,
       timestamp: workLog.createdAt
     };
-
-    res.status(201).json({
-      success: true,
-      message: 'Work log created successfully',
-      data: formattedLog
-    });
+    res.status(201).json({ success: true, message: 'Work log created successfully', data: formattedLog });
   } catch (error) {
     console.error('Create work log error:', error);
-    
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        errors
-      });
+      return res.status(400).json({ success: false, message: 'Validation error', errors });
     }
-
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create work log',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: 'Failed to create work log', error: error.message });
   }
 });
 
@@ -323,7 +273,7 @@ router.get('/by-employee', adminAuth, async (req, res) => {
 router.patch('/:id', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { totalParts, rejection, partSize, operation } = req.body || {};
+    const { totalParts, rejection, partSize, specialSize, operation } = req.body || {};
 
     const log = await WorkLog.findById(id).populate('product', 'sizes type');
     if (!log) return res.status(404).json({ success: false, message: 'Work log not found' });
@@ -356,6 +306,10 @@ router.patch('/:id', adminAuth, async (req, res) => {
         try { await log.product.save(); } catch (e) { console.warn('Failed to save extended size on product', e); }
       }
       log.partSize = partSize;
+    }
+
+    if (typeof specialSize !== 'undefined') {
+      log.specialSize = specialSize || null;
     }
 
     if (typeof operation !== 'undefined') {

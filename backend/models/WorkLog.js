@@ -18,7 +18,11 @@ const workLogSchema = new mongoose.Schema({
   },
   partSize: {
     type: String,
-    required: [true, 'Part size is required'],
+    required: false, // Allow using only specialSize
+    trim: true
+  },
+  specialSize: {
+    type: String,
     trim: true
   },
   // Optional operation detail (per form selection, e.g., CASTING, BORE...)
