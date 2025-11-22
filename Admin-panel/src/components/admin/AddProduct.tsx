@@ -25,6 +25,8 @@ export function AddProduct() {
   const [products, setProducts] = useState<Product[]>([]);
   const partNameSuggestions = Array.from(new Set(products.filter(p => !!p.partName).map(p => p.partName!)));
   const sizeSuggestions = Array.from(new Set(products.flatMap(p => p.sizes || [])));
+  // Collect historical size sets (joined string) for datalist suggestions
+  const sizeSetSuggestions = Array.from(new Set(products.map(p => (p.sizes || []).join(', ')).filter(s => s))).slice(0, 15);
   const [formData, setFormData] = useState({
     type: '',
     code: '',
@@ -286,11 +288,18 @@ export function AddProduct() {
                 <Label htmlFor="sizes">Sizes</Label>
                 <Input
                   id="sizes"
+                  list="size-set-suggestions"
                   value={formData.sizes}
                   onChange={(e) => setFormData({...formData, sizes: e.target.value})}
-                  placeholder="Enter sizes separated by commas (e.g., S, M, L, XL)"
+                  placeholder="Enter sizes separated by commas (e.g., std, 1, 2, 3)"
                   required
+                  autoComplete="off"
                 />
+                <datalist id="size-set-suggestions">
+                  {sizeSetSuggestions.map(set => (
+                    <option key={set} value={set} />
+                  ))}
+                </datalist>
                 <p className="text-sm text-muted-foreground">Enter multiple sizes separated by commas</p>
                 {sizeSuggestions.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-1">

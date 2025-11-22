@@ -26,6 +26,7 @@ interface WorkLog {
   code?: string;
   partName?: string;
   partSize: string;
+  specialSize?: string;
   operation?: string;
   totalParts: number;
   rejection?: number;
@@ -225,7 +226,8 @@ class DatabaseService {
           },
           body: JSON.stringify({
             productId,
-            partSize: workLog.partSize,
+            partSize: workLog.partSize || undefined,
+            specialSize: (workLog as any).specialSize || undefined,
             operation: (workLog as any).operation,
             totalParts: workLog.totalParts,
             rejection: workLog.rejection || 0,
@@ -244,6 +246,7 @@ class DatabaseService {
             code: saved.code,
             partName: saved.partName,
             partSize: saved.partSize || workLog.partSize,
+            specialSize: (saved as any).specialSize || (workLog as any).specialSize,
             operation: (saved as any).operation || (workLog as any).operation,
             totalParts: saved.totalParts ?? saved.quantity ?? workLog.totalParts,
             rejection: saved.rejection ?? workLog.rejection ?? 0,

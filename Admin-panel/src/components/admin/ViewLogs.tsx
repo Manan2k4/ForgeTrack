@@ -17,6 +17,7 @@ interface WorkLog {
   code?: string;
   partName?: string;
   partSize: string;
+  specialSize?: string | null;
   totalParts: number;
   rejection?: number;
   date: string;
@@ -368,6 +369,7 @@ export function ViewLogs() {
                       <TableHead>Part</TableHead>
                       <TableHead>Item</TableHead>
                       <TableHead>Size</TableHead>
+                      <TableHead>Sp. Size</TableHead>
                       <TableHead>Job Type</TableHead>
                       <TableHead>Total Parts</TableHead>
                       <TableHead>Rejection</TableHead>
@@ -382,7 +384,8 @@ export function ViewLogs() {
                         <TableCell>{log.employeeName}</TableCell>
                         <TableCell className="capitalize">{log.jobType}</TableCell>
                         <TableCell>{log.jobType === 'sleeve' ? log.code : log.partName}</TableCell>
-                        <TableCell>{log.partSize}</TableCell>
+                        <TableCell>{log.partSize || '—'}</TableCell>
+                        <TableCell>{log.specialSize || '—'}</TableCell>
                         <TableCell>{(log as any).operation || '—'}</TableCell>
                         <TableCell>{log.totalParts}</TableCell>
                         <TableCell>{log.rejection ?? 0}</TableCell>

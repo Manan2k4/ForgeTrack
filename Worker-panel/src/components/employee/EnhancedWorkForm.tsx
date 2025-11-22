@@ -223,12 +223,13 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
         jobType: jobType,
         code: jobType === 'sleeve' ? formData.selectedItem : undefined,
         partName: jobType !== 'sleeve' ? formData.selectedItem : undefined,
-        partSize: formData.specialSize || formData.partSize,
+        partSize: formData.partSize || '',
+        specialSize: formData.specialSize || '',
         operation: formData.operation || undefined,
         totalParts: totalParts,
         rejection: rejection,
         date: new Date().toISOString().split('T')[0],
-      };
+      } as any;
 
       // Save using database service (handles online/offline automatically)
       await databaseService.saveWorkLog(workLogData);
