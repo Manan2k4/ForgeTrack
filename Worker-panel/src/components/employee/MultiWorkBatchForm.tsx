@@ -259,7 +259,7 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
           <div className="flex flex-col sm:flex-row flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={addEntry} className="h-11 w-full sm:w-auto"><Plus className="w-4 h-4 mr-1" /> Add Entry</Button>
             <Button type="button" onClick={startReview} className="h-11 w-full sm:w-auto bg-green-600 hover:bg-green-700" disabled={!canSubmit}><Eye className="w-4 h-4 mr-1" /> Review</Button>
-            <Button type="button" onClick={directSubmit} className="h-11 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50" disabled={!canSubmit}><CheckCircle2 className="w-4 h-4 mr-1" /> {entries.length === 1 ? 'Submit Entry' : 'Submit All'}</Button>
+            <Button type="button" onClick={directSubmit} className="h-11 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50" disabled={!canSubmit}><CheckCircle2 className="w-4 h-4 mr-1" /> Submit</Button>
             <Button type="button" variant="outline" onClick={onComplete} className="h-11 w-full sm:w-auto">Cancel</Button>
           </div>
         </CardContent>
@@ -299,13 +299,7 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
           </CardContent>
         </Card>
       )}
-      {/* Mobile sticky action bar (duplicate controls) */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur border-t shadow-lg p-2 flex gap-2">
-        <Button type="button" variant="outline" onClick={addEntry} className="flex-1 h-11"><Plus className="w-4 h-4 mr-1" /> Add</Button>
-        <Button type="button" onClick={startReview} disabled={!canSubmit} className="flex-1 h-11 bg-green-600 hover:bg-green-700 disabled:opacity-40"><Eye className="w-4 h-4 mr-1" /> Review</Button>
-        <Button type="button" onClick={directSubmit} disabled={!canSubmit} className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 disabled:opacity-40"><CheckCircle2 className="w-4 h-4 mr-1" /> {entries.length === 1 ? 'Submit' : 'Submit All'}</Button>
-        <Button type="button" variant="outline" onClick={onComplete} className="flex-1 h-11">Cancel</Button>
-      </div>
+      {/* Sticky mobile action bar removed per user request */}
     </div>
   );
 }
