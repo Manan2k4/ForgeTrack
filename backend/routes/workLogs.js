@@ -102,12 +102,14 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
-    // Verify that the part size exists for this product
+    // Accept custom part sizes: if not present, append to product.sizes for future reuse
     if (!product.sizes.includes(partSize)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid part size for this product'
-      });
+      product.sizes.push(partSize);
+      try {
+        await product.save();
+      } catch (e) {
+        console.warn('Failed to append custom size to product', e);
+      }
     }
 
     // Create work log
@@ -328,8 +330,12 @@ router.patch('/:id', adminAuth, async (req, res) => {
     }
 
     if (typeof partSize !== 'undefined') {
-      if (!log.product || !Array.isArray(log.product.sizes) || !log.product.sizes.includes(partSize)) {
-        return res.status(400).json({ success: false, message: 'Invalid part size for this product' });
+      if (!log.product) return res.status(400).json({ success: false, message: 'Product missing for log' });
+      if (!Array.isArray(log.product.sizes)) log.product.sizes = [];
+      if (!log.product.sizes.includes(partSize)) {
+        // Dynamically extend product sizes
+        log.product.sizes.push(partSize);
+        try { await log.product.save(); } catch (e) { console.warn('Failed to save extended size on product', e); }
       }
       log.partSize = partSize;
     }
