@@ -180,6 +180,8 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
+      {/* DEBUG VERSION MARKER: v2.1 sticky bar */}
+      <div className="text-[10px] text-center text-gray-400">BatchForm v2.1</div>
       {hasDraft && (
         <Alert className="bg-blue-50 border-blue-200">
           <AlertCircle className="w-4 h-4 text-blue-600" />
@@ -297,6 +299,13 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
           </CardContent>
         </Card>
       )}
+      {/* Mobile sticky action bar (duplicate controls) */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur border-t shadow-lg p-2 flex gap-2">
+        <Button type="button" variant="outline" onClick={addEntry} className="flex-1 h-11"><Plus className="w-4 h-4 mr-1" /> Add</Button>
+        <Button type="button" onClick={startReview} disabled={!canSubmit} className="flex-1 h-11 bg-green-600 hover:bg-green-700 disabled:opacity-40"><Eye className="w-4 h-4 mr-1" /> Review</Button>
+        <Button type="button" onClick={directSubmit} disabled={!canSubmit} className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 disabled:opacity-40"><CheckCircle2 className="w-4 h-4 mr-1" /> {entries.length === 1 ? 'Submit' : 'Submit All'}</Button>
+        <Button type="button" variant="outline" onClick={onComplete} className="flex-1 h-11">Cancel</Button>
+      </div>
     </div>
   );
 }
