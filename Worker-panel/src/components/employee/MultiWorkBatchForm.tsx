@@ -140,6 +140,11 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
     return '';
   })();
 
+  const submitEnabled = canSubmit && !isSubmitting;
+  const submitButtonClasses = submitEnabled
+    ? 'h-11 w-full sm:w-auto bg-blue-600 text-white hover:bg-blue-700 transition-colors'
+    : 'h-11 w-full sm:w-auto bg-gray-200 text-gray-600 border border-gray-300 cursor-not-allowed';
+
   // startReview removed (no review step)
 
   const confirmSubmit = async () => {
@@ -274,15 +279,16 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
             <Button type="button" variant="outline" onClick={addEntry} className="h-11 w-full sm:w-auto"><Plus className="w-4 h-4 mr-1" /> Add Entry</Button>
             <Button
               type="button"
-              onClick={directSubmit}
-              className="h-11 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-blue-100 disabled:text-blue-600 disabled:border disabled:border-blue-200 disabled:opacity-100"
-              disabled={!canSubmit || isSubmitting}
+              onClick={submitEnabled ? directSubmit : undefined}
+              className={submitButtonClasses}
+              disabled={!submitEnabled}
+              aria-disabled={!submitEnabled}
             >
               <CheckCircle2 className="w-4 h-4 mr-1" /> {isSubmitting ? 'Submitting…' : 'Submit'}
             </Button>
             <Button type="button" variant="outline" onClick={onComplete} className="h-11 w-full sm:w-auto">Cancel</Button>
-            {(!canSubmit || isSubmitting) && (
-              <div className="text-xs text-red-600 w-full sm:w-auto">
+            {!submitEnabled && disabledReason && (
+              <div className="text-xs text-red-600 w-full sm:w-auto" role="alert">
                 {disabledReason}
               </div>
             )}
