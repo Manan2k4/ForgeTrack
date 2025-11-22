@@ -2,6 +2,7 @@ const express = require('express');
 const WorkLog = require('../models/WorkLog');
 const { auth, adminAuth } = require('../middleware/auth');
 const jwt = require('jsonwebtoken');
+const router = express.Router();
 
 // In-memory SSE client list
 const workLogClients = [];
@@ -55,7 +56,7 @@ router.get('/stream', async (req, res) => {
     if (idx >= 0) workLogClients.splice(idx, 1);
   });
 });
-const router = express.Router();
+// (router already initialized at top; removed duplicate declaration)
 
 // Get work logs (admin gets all, employees get their own)
 router.get('/', auth, async (req, res) => {
