@@ -8,7 +8,7 @@ import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
 import { toast } from 'sonner';
 import databaseService from '../../services/databaseService';
-import { CheckCircle2, Plus, Trash2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle2, Plus, Trash2, AlertCircle } from 'lucide-react';
 
 interface Product { id: string; type: 'sleeve' | 'rod' | 'pin'; code?: string; partName?: string; sizes: string[]; }
 interface MultiWorkBatchFormProps { jobType: 'rod' | 'sleeve' | 'pin'; employeeId: string; onComplete: () => void; isOnline: boolean; }
@@ -24,10 +24,10 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
   const [products, setProducts] = useState<Product[]>([]);
   const [entries, setEntries] = useState<Entry[]>([createEmptyEntry()]);
   const [availableSizesMap, setAvailableSizesMap] = useState<Record<string, string[]>>({});
-  const [showReview, setShowReview] = useState(false);
+  // Review flow removed; only direct submit now
   const [hasDraft, setHasDraft] = useState(false);
   const draftKey = `multiWorkBatchDraft_${jobType}_${employeeId}`;
-  const [reviewCollapsed, setReviewCollapsed] = useState(false);
+  // reviewCollapsed removed
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   function createEmptyEntry(): Entry { return { id: Date.now().toString() + Math.random(), selectedItem: '', partSize: '', specialSize: '', totalParts: '', rejection: '', operation: '' }; }
@@ -123,20 +123,12 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
     return e.selectedItem && (e.partSize || e.specialSize) && !isNaN(total) && total > 0 && rej >= 0 && rej <= total && (operationOptions.length === 0 || e.operation);
   });
 
-  const startReview = () => {
-    const { errors, valid } = validateEntries();
-    if (!valid) {
-      toast.error('Please fix errors before review');
-      errors.slice(0, 4).forEach(m => toast.message(m));
-      return;
-    }
-    setShowReview(true);
-  };
+  // startReview removed (no review step)
 
   const confirmSubmit = async () => {
     if (isSubmitting) return; // guard against double-trigger
     setIsSubmitting(true);
-    setShowReview(false);
+    // review hidden (removed)
     const users = JSON.parse(localStorage.getItem('users') || '[]');
     const employee = users.find((u: any) => u.id === employeeId);
     if (!employee) { toast.error('Employee not found'); setIsSubmitting(false); return; }
@@ -263,47 +255,14 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
           })}
           <div className="flex flex-col sm:flex-row flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={addEntry} className="h-11 w-full sm:w-auto"><Plus className="w-4 h-4 mr-1" /> Add Entry</Button>
-            <Button type="button" onClick={startReview} className="h-11 w-full sm:w-auto bg-green-600 hover:bg-green-700" disabled={!canSubmit}><Eye className="w-4 h-4 mr-1" /> Review</Button>
+            {/* Review button removed */}
             <Button type="button" onClick={directSubmit} className="h-11 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50" disabled={!canSubmit || isSubmitting}><CheckCircle2 className="w-4 h-4 mr-1" /> {isSubmitting ? 'Submitting…' : 'Submit'}</Button>
             <Button type="button" variant="outline" onClick={onComplete} className="h-11 w-full sm:w-auto">Cancel</Button>
           </div>
         </CardContent>
       </Card>
 
-      {showReview && (
-        <Card className="border-green-600/30 shadow-lg">
-          <CardHeader className="flex flex-row justify-between items-center">
-            <div>
-              <CardTitle>Review Batch</CardTitle>
-              <CardDescription>Job Type: {jobType}</CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => setShowReview(false)}><EyeOff className="w-4 h-4" /></Button>
-          </CardHeader>
-          <CardContent className="space-y-3 max-h-[420px] overflow-y-auto">
-            {entries.map((e, i) => {
-              const total = parseInt(e.totalParts || '0') || 0;
-              const rej = parseInt(e.rejection || '0') || 0;
-              const ok = Math.max(0, total - rej);
-              return (
-                <div key={e.id} className="border rounded-md p-3 text-sm flex flex-col gap-1">
-                  <div className="flex justify-between"><span className="font-medium">#{i + 1} {e.selectedItem || '—'}</span><span>{total} parts</span></div>
-                  <div className="grid sm:grid-cols-2 gap-2 text-xs">
-                    <div>Size: {e.partSize || '—'}</div>
-                    <div>Sp.Size: {e.specialSize || '—'}</div>
-                    <div>Rejection: {rej}</div>
-                    <div>OK: {ok}</div>
-                    {OPERATION_OPTIONS[jobType]?.length > 0 && <div className="sm:col-span-2">Operation: {e.operation || '—'}</div>}
-                  </div>
-                </div>
-              );
-            })}
-            <div className="flex flex-col sm:flex-row gap-2 pt-2">
-              <Button onClick={confirmSubmit} className="flex-1 h-11 bg-green-600 hover:bg-green-700"><CheckCircle2 className="w-4 h-4 mr-1" /> Confirm Submit</Button>
-              <Button variant="outline" onClick={() => setShowReview(false)} className="flex-1 h-11">Back</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Review component removed */}
       {/* Sticky mobile action bar removed per user request */}
     </div>
   );
