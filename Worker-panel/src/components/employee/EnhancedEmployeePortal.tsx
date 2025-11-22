@@ -5,7 +5,8 @@ import { Badge } from '../ui/badge';
 // Single Entry (EnhancedWorkForm) temporarily disabled – kept as backup.
 // import { EnhancedWorkForm } from './EnhancedWorkForm';
 import { MultiWorkBatchForm } from './MultiWorkBatchForm';
-import { DatabaseSetupGuide } from './DatabaseSetupGuide';
+// Database setup guide card temporarily disabled – kept for future use.
+// import { DatabaseSetupGuide } from './DatabaseSetupGuide';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { toast } from 'sonner';
 import databaseService from '../../services/databaseService';
@@ -347,8 +348,9 @@ export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmp
         </div>
         */}
 
-        {/* Database Setup Guide */}
+        {/* Database Setup Guide commented out
         <DatabaseSetupGuide connectionStatus={connectionStatus} />
+        */}
 
         {/* Pull to refresh hint */}
         <div className="text-center text-sm text-gray-500 py-4">
