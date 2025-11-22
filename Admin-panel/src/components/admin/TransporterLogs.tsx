@@ -6,7 +6,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { apiService } from '../../services/api';
-import { toDMY, parseDMYToISO } from '../../utils/date';
+import { toDMY } from '../../utils/date';
 import { toast } from 'sonner';
 //
 
@@ -48,11 +48,11 @@ export function TransporterLogs() {
     setLoading(true);
     try {
       const listResp = await apiService.getTransporterLogs({
-        from: parseDMYToISO(filters.from) || undefined,
-        to: parseDMYToISO(filters.to) || undefined,
-  employee: filters.employee !== 'all' ? filters.employee : undefined,
-  jobType: filters.jobType !== 'all' ? filters.jobType : undefined,
-  partyName: filters.partyName !== 'all' ? filters.partyName : undefined,
+        from: filters.from || undefined,
+        to: filters.to || undefined,
+        employee: filters.employee !== 'all' ? filters.employee : undefined,
+        jobType: filters.jobType !== 'all' ? filters.jobType : undefined,
+        partyName: filters.partyName !== 'all' ? filters.partyName : undefined,
       });
       const newLogs = Array.isArray(listResp?.data) ? listResp.data : [];
       setLogs(newLogs);
@@ -63,11 +63,11 @@ export function TransporterLogs() {
       const uniquePartiesCount = partiesSet.size;
 
       const statsResp = await apiService.getTransporterStats({
-        from: parseDMYToISO(filters.from) || undefined,
-        to: parseDMYToISO(filters.to) || undefined,
-  employee: filters.employee !== 'all' ? filters.employee : undefined,
-  partyName: filters.partyName !== 'all' ? filters.partyName : undefined,
-  ...(filters.jobType !== 'all' ? { jobType: filters.jobType } : {}),
+        from: filters.from || undefined,
+        to: filters.to || undefined,
+        employee: filters.employee !== 'all' ? filters.employee : undefined,
+        partyName: filters.partyName !== 'all' ? filters.partyName : undefined,
+        ...(filters.jobType !== 'all' ? { jobType: filters.jobType } : {}),
       });
       const serverStats: any = statsResp?.data || {};
       setStats({
@@ -100,11 +100,11 @@ export function TransporterLogs() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
             <div className="w-full">
               <label className="block text-sm mb-1">From</label>
-              <Input placeholder="dd/mm/yyyy" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+              <Input type="date" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
             </div>
             <div className="w-full">
               <label className="block text-sm mb-1">To</label>
-              <Input placeholder="dd/mm/yyyy" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
+              <Input type="date" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
             </div>
             <div className="w-full">
               <label className="block text-sm mb-1">Employee</label>
