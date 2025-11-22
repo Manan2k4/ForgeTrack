@@ -143,8 +143,8 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
   const submitEnabled = canSubmit && !isSubmitting;
   // Simplified submit button styling: always a solid green when enabled, gray when disabled
   const submitButtonClasses = submitEnabled
-    ? 'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-green-600 text-black font-semibold rounded-md border border-green-600 hover:bg-green-500 active:scale-[0.97] shadow-md'
-    : 'h-11 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gray-200 text-gray-600 font-medium rounded-md border border-gray-300 cursor-not-allowed shadow-xs';
+    ? 'h-11 px-4 py-2 has-[>svg]:px-3 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-green-600 text-black font-medium rounded-md border border-green-600 hover:bg-green-500 active:scale-[0.97] shadow-md'
+    : 'h-11 px-4 py-2 has-[>svg]:px-3 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gray-200 text-gray-600 font-medium rounded-md border border-gray-300 cursor-not-allowed shadow-xs';
 
   // startReview removed (no review step)
 
