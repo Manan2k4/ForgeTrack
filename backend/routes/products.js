@@ -132,40 +132,53 @@ router.post('/', adminAuth, async (req, res) => {
 router.put('/:id', adminAuth, async (req, res) => {
   try {
     const productId = req.params.id;
-    const { sizes } = req.body;
+    let { sizes, code, partName } = req.body;
 
-    if (!sizes || !Array.isArray(sizes) || sizes.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Sizes array is required'
-      });
+    // Load existing product to determine type
+    const existing = await Product.findById(productId);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    const product = await Product.findByIdAndUpdate(
-      productId,
-      { sizes: sizes.filter(size => size && size.trim()) },
-      { new: true, runValidators: true }
-    );
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found'
-      });
+    // Normalize inputs
+    const normSizes = Array.isArray(sizes) ? sizes.map(s => String(s).trim()).filter(Boolean) : undefined;
+    if (normSizes && normSizes.length === 0) {
+      return res.status(400).json({ success: false, message: 'Sizes array cannot be empty' });
     }
 
-    res.json({
-      success: true,
-      message: 'Product updated successfully',
-      data: product
-    });
+    if (existing.type === 'sleeve') {
+      if (typeof code === 'string') code = code.trim();
+      if (code && code !== existing.code) {
+        // Check uniqueness for sleeve code
+        const dup = await Product.findOne({ type: 'sleeve', code });
+        if (dup) return res.status(400).json({ success: false, message: 'Sleeve code already exists' });
+        existing.code = code;
+      }
+    } else { // rod or pin
+      if (typeof partName === 'string') partName = partName.trim();
+      if (partName && partName !== existing.partName) {
+        // Case-insensitive uniqueness for rod/pin
+        const dup = await Product.findOne({ type: existing.type, partName })
+          .collation({ locale: 'en', strength: 2 });
+        if (dup) return res.status(400).json({ success: false, message: 'Part name already exists for this type' });
+        existing.partName = partName;
+      }
+    }
+
+    if (normSizes) existing.sizes = Array.from(new Set(normSizes));
+    await existing.save();
+
+    res.json({ success: true, message: 'Product updated successfully', data: existing });
   } catch (error) {
     console.error('Update product error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update product',
-      error: error.message
-    });
+    if (error.name === 'ValidationError') {
+      const errs = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({ success: false, message: 'Validation error', errors: errs });
+    }
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: 'Duplicate value not allowed' });
+    }
+    res.status(500).json({ success: false, message: 'Failed to update product', error: error.message });
   }
 });
 

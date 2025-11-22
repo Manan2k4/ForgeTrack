@@ -100,7 +100,10 @@ export function AddProduct() {
   const handleSaveEdit = async () => {
     if (!editingProduct) return;
     try {
-      await apiService.updateProduct(editingProduct.id, { sizes: editingProduct.sizes });
+      await apiService.updateProduct(editingProduct.id, {
+        sizes: editingProduct.sizes,
+        ...(editingProduct.type === 'sleeve' ? { code: editingProduct.code } : { partName: editingProduct.partName })
+      });
       setEditingProduct(null);
       setIsEditDialogOpen(false);
       await loadProducts();
@@ -314,13 +317,32 @@ export function AddProduct() {
           </DialogHeader>
           {editingProduct && (
             <div className="space-y-4">
+              {editingProduct.type === 'sleeve' ? (
+                <div className="space-y-2">
+                  <Label>Code</Label>
+                  <Input
+                    value={editingProduct.code || ''}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, code: e.target.value })}
+                    placeholder="Update code"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Part Name</Label>
+                  <Input
+                    value={editingProduct.partName || ''}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, partName: e.target.value })}
+                    placeholder="Update part name"
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Sizes</Label>
                 <Input
                   value={editingProduct.sizes.join(', ')}
                   onChange={(e) => {
                     const sizes = e.target.value.split(',').map(s => s.trim()).filter(s => s);
-                    setEditingProduct({...editingProduct, sizes});
+                    setEditingProduct({ ...editingProduct, sizes });
                   }}
                   placeholder="Enter sizes separated by commas"
                 />

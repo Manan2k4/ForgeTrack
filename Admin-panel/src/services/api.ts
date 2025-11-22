@@ -151,7 +151,7 @@ class ApiService {
     });
   }
 
-  async updateProduct(productId: string, data: { sizes: string[] }) {
+  async updateProduct(productId: string, data: { sizes: string[]; code?: string; partName?: string }) {
     return this.request<any>(`/products/${productId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
