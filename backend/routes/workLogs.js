@@ -6,7 +6,7 @@ const router = express.Router();
 // Get work logs (admin gets all, employees get their own)
 router.get('/', auth, async (req, res) => {
   try {
-    const { date, employee, jobType } = req.query;
+    const { date, employee, jobType, department } = req.query;
     let filter = {};
 
     // If user is employee, only show their logs
@@ -19,6 +19,22 @@ router.get('/', auth, async (req, res) => {
     if (employee && req.user.role === 'admin') filter.employee = employee;
     if (jobType) filter.jobType = jobType;
 
+    // Department filter (admin only): resolve employees by department
+    if (department && req.user.role === 'admin') {
+      try {
+        const User = require('../models/User');
+        const emps = await User.find({ department, role: 'employee' }, '_id');
+        if (emps.length > 0) {
+          filter.employee = { $in: emps.map(e => e._id) };
+        } else {
+          // No employees with that department, force empty result
+          filter.employee = { $in: [] };
+        }
+      } catch (e) {
+        console.warn('Department filter failed', e);
+      }
+    }
+
     const workLogs = await WorkLog.find(filter)
       .populate('employee', 'name username department isActive')
       .populate('product', 'type code partName')
@@ -29,6 +45,7 @@ router.get('/', auth, async (req, res) => {
       id: log._id,
       employeeId: log.employee?._id || undefined,
       employeeName: (log.employee && log.employee.name) || log.employeeName || 'Former Employee',
+      employeeDepartment: (log.employee && log.employee.department) || log.employeeDepartment || undefined,
       jobType: log.jobType,
       code: log.product?.code,
       partName: log.product?.partName,
@@ -140,6 +157,7 @@ router.post('/', auth, async (req, res) => {
       id: workLog._id,
       employeeId: workLog.employee._id,
       employeeName: workLog.employee.name,
+      employeeDepartment: workLog.employee.department,
       jobType: workLog.jobType,
       code: workLog.product.code,
       partName: workLog.product.partName,

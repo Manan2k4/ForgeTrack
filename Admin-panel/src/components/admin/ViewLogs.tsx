@@ -12,6 +12,7 @@ interface WorkLog {
   id: string;
   employeeId: string;
   employeeName: string;
+  employeeDepartment?: string;
   jobType: 'rod' | 'sleeve' | 'pin';
   code?: string;
   partName?: string;
@@ -32,6 +33,7 @@ export function ViewLogs() {
   const [toDate, setToDate] = useState<string>('');
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
   const [selectedJobType, setSelectedJobType] = useState<string>('all');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
 
   useEffect(() => {
     loadWorkLogs();
@@ -39,7 +41,7 @@ export function ViewLogs() {
 
   useEffect(() => {
     applyFilters();
-  }, [workLogs, fromDate, toDate, selectedEmployee, selectedJobType]);
+  }, [workLogs, fromDate, toDate, selectedEmployee, selectedJobType, selectedDepartment]);
 
   const loadWorkLogs = async () => {
     try {
@@ -74,6 +76,10 @@ export function ViewLogs() {
       filtered = filtered.filter(log => log.jobType === selectedJobType);
     }
 
+    if (selectedDepartment !== 'all') {
+      filtered = filtered.filter(log => (log.employeeDepartment || 'unknown') === selectedDepartment);
+    }
+
     setFilteredLogs(filtered);
   };
 
@@ -88,6 +94,8 @@ export function ViewLogs() {
     workLogs.map((log: WorkLog) => [log.employeeId, { id: log.employeeId, name: log.employeeName }])
   );
   const uniqueEmployees: { id: string; name: string }[] = Array.from(employeeMap.values());
+  const departmentSet = new Set<string>(workLogs.map(l => l.employeeDepartment || 'unknown').filter(Boolean));
+  const uniqueDepartments = Array.from(departmentSet.values()).filter(d => d !== 'unknown');
 
   const getStatistics = () => {
     const totalLogs = filteredLogs.length;
@@ -246,7 +254,7 @@ export function ViewLogs() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Filters</CardTitle>
-              <CardDescription>Filter work logs by date, employee, or job type</CardDescription>
+              <CardDescription>Filter work logs by date, employee, job type, or department</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={exportWorkLogs} disabled={filteredLogs.length === 0}>
               <Download className="w-4 h-4 mr-2" />
@@ -255,7 +263,7 @@ export function ViewLogs() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">From</label>
               <input
@@ -307,6 +315,20 @@ export function ViewLogs() {
                   <SelectItem value="rod">Rod</SelectItem>
                   <SelectItem value="sleeve">Sleeve</SelectItem>
                   <SelectItem value="pin">Pin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Department</label>
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {uniqueDepartments.map(dep => (
+                    <SelectItem key={dep} value={dep}>{dep}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
