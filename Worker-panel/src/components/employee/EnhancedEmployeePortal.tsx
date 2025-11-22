@@ -3,6 +3,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { EnhancedWorkForm } from './EnhancedWorkForm';
+import { MultiWorkBatchForm } from './MultiWorkBatchForm';
 import { DatabaseSetupGuide } from './DatabaseSetupGuide';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { toast } from 'sonner';
@@ -40,6 +41,7 @@ type ViewMode = 'jobs' | 'work-form';
 export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmployeePortalProps) {
   const [selectedJob, setSelectedJob] = useState<JobType>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('jobs');
+  const [batchMode, setBatchMode] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState({ isOnline: true, isDatabaseConnected: false });
   const [syncQueueLength, setSyncQueueLength] = useState(0);
 
@@ -122,11 +124,13 @@ export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmp
     }
     setSelectedJob(jobType);
     setViewMode('work-form');
+    setBatchMode(false);
   };
 
   const handleJobComplete = () => {
     setSelectedJob(null);
     setViewMode('jobs');
+    setBatchMode(false);
     updateConnectionStatus();
     
     // Success haptic feedback
@@ -138,6 +142,7 @@ export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmp
   const handleBackToJobs = () => {
     setSelectedJob(null);
     setViewMode('jobs');
+    setBatchMode(false);
   };
 
   // Get formatted time for last entry
@@ -172,13 +177,26 @@ export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmp
           </div>
         </header>
         
-        <main className="p-4">
-          <EnhancedWorkForm
-            jobType={selectedJob}
-            employeeId={user.id}
-            onComplete={handleJobComplete}
-            isOnline={connectionStatus.isOnline}
-          />
+        <main className="p-4 space-y-3">
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant={batchMode ? 'default' : 'outline'} onClick={() => setBatchMode(true)}>Batch Mode</Button>
+            <Button size="sm" variant={!batchMode ? 'default' : 'outline'} onClick={() => setBatchMode(false)}>Single Entry</Button>
+          </div>
+          {batchMode ? (
+            <MultiWorkBatchForm
+              jobType={selectedJob as any}
+              employeeId={user.id}
+              onComplete={handleJobComplete}
+              isOnline={connectionStatus.isOnline}
+            />
+          ) : (
+            <EnhancedWorkForm
+              jobType={selectedJob as any}
+              employeeId={user.id}
+              onComplete={handleJobComplete}
+              isOnline={connectionStatus.isOnline}
+            />
+          )}
         </main>
       </div>
     );
