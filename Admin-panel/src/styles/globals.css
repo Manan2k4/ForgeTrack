@@ -187,3 +187,14 @@
 html {
   font-size: var(--font-size);
 }
+
+/* Legacy browser fallbacks (e.g., old Windows/IE modes) */
+@layer base {
+  select {
+    background-color: #ffffff;
+    color: #111111;
+  }
+  button {
+    color: #ffffff;
+  }
+}

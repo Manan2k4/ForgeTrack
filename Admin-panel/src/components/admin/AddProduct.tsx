@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from 'sonner';
 import { Package, Edit, Trash2, Plus } from 'lucide-react';
 import { apiService } from '../../services/api';
+import { toDMY } from '../../utils/date';
 
 interface Product {
   id: string;
@@ -22,6 +23,8 @@ interface Product {
 
 export function AddProduct() {
   const [products, setProducts] = useState<Product[]>([]);
+  const partNameSuggestions = Array.from(new Set(products.filter(p => !!p.partName).map(p => p.partName!)));
+  const sizeSuggestions = Array.from(new Set(products.flatMap(p => p.sizes || [])));
   const [formData, setFormData] = useState({
     type: '',
     code: '',
@@ -169,9 +172,7 @@ export function AddProduct() {
                       {type === 'sleeve' ? product.code : product.partName}
                     </TableCell>
                     <TableCell>{product.sizes.join(', ')}</TableCell>
-                    <TableCell>
-                      {new Date(product.createdAt).toLocaleDateString()}
-                    </TableCell>
+                    <TableCell>{toDMY(product.createdAt)}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
@@ -266,11 +267,17 @@ export function AddProduct() {
                 <Label htmlFor="partName">Part Name</Label>
                 <Input
                   id="partName"
+                  list="partName-suggestions"
                   value={formData.partName}
                   onChange={(e) => setFormData({...formData, partName: e.target.value})}
                   placeholder="Enter part name"
                   required
                 />
+                <datalist id="partName-suggestions">
+                  {partNameSuggestions.map(name => (
+                    <option key={name} value={name!} />
+                  ))}
+                </datalist>
               </div>
             )}
 
@@ -284,9 +291,25 @@ export function AddProduct() {
                   placeholder="Enter sizes separated by commas (e.g., S, M, L, XL)"
                   required
                 />
-                <p className="text-sm text-muted-foreground">
-                  Enter multiple sizes separated by commas
-                </p>
+                <p className="text-sm text-muted-foreground">Enter multiple sizes separated by commas</p>
+                {sizeSuggestions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {sizeSuggestions.slice(0, 12).map(sz => (
+                      <button
+                        type="button"
+                        key={sz}
+                        className="text-xs px-2 py-1 border rounded hover:bg-muted"
+                        onClick={() => {
+                          const parts = formData.sizes.split(',').map(s => s.trim()).filter(Boolean);
+                          if (!parts.includes(sz)) parts.push(sz);
+                          setFormData({ ...formData, sizes: parts.join(', ') });
+                        }}
+                      >
+                        {sz}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

@@ -6,6 +6,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { apiService } from '../../services/api';
+import { toDMY, parseDMYToISO } from '../../utils/date';
 import { toast } from 'sonner';
 //
 
@@ -47,8 +48,8 @@ export function TransporterLogs() {
     setLoading(true);
     try {
       const listResp = await apiService.getTransporterLogs({
-        from: filters.from || undefined,
-        to: filters.to || undefined,
+        from: parseDMYToISO(filters.from) || undefined,
+        to: parseDMYToISO(filters.to) || undefined,
   employee: filters.employee !== 'all' ? filters.employee : undefined,
   jobType: filters.jobType !== 'all' ? filters.jobType : undefined,
   partyName: filters.partyName !== 'all' ? filters.partyName : undefined,
@@ -62,8 +63,8 @@ export function TransporterLogs() {
       const uniquePartiesCount = partiesSet.size;
 
       const statsResp = await apiService.getTransporterStats({
-        from: filters.from || undefined,
-        to: filters.to || undefined,
+        from: parseDMYToISO(filters.from) || undefined,
+        to: parseDMYToISO(filters.to) || undefined,
   employee: filters.employee !== 'all' ? filters.employee : undefined,
   partyName: filters.partyName !== 'all' ? filters.partyName : undefined,
   ...(filters.jobType !== 'all' ? { jobType: filters.jobType } : {}),
@@ -99,11 +100,11 @@ export function TransporterLogs() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
             <div className="w-full">
               <label className="block text-sm mb-1">From</label>
-              <Input type="date" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+              <Input placeholder="dd/mm/yyyy" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
             </div>
             <div className="w-full">
               <label className="block text-sm mb-1">To</label>
-              <Input type="date" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
+              <Input placeholder="dd/mm/yyyy" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
             </div>
             <div className="w-full">
               <label className="block text-sm mb-1">Employee</label>
@@ -194,7 +195,7 @@ export function TransporterLogs() {
               <TableBody>
                 {logs.map((log, idx) => (
                   <TableRow key={log?.id || log?._id || idx}>
-                    <TableCell>{log?.date || log?.workDate || (log?.timestamp ? String(log.timestamp).slice(0, 10) : '—')}</TableCell>
+                    <TableCell>{toDMY(log?.date || log?.workDate || (log?.timestamp ? String(log.timestamp).slice(0, 10) : undefined)) || '—'}</TableCell>
                     <TableCell>{log?.employeeName || log?.employee?.name || '—'}</TableCell>
                     <TableCell>{log?.jobType === 'outside-rod' ? 'Outside Rod' : 'Outside Pin'}</TableCell>
                     <TableCell>{log?.partyName || '—'}</TableCell>

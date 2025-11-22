@@ -44,6 +44,7 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
   const [formData, setFormData] = useState({
     selectedItem: '',
     partSize: '',
+    specialSize: '',
     totalParts: '',
     rejection: '',
     operation: '',
@@ -60,10 +61,10 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
     key: `workDraft_${jobType}_${employeeId}`,
     data: formData,
     delay: 1500,
-  shouldSave: (d) => Boolean(d?.selectedItem || d?.partSize || (d?.totalParts && String(d.totalParts).trim() !== '') || (d?.rejection && String(d.rejection).trim() !== '')),
+  shouldSave: (d) => Boolean(d?.selectedItem || d?.partSize || d?.specialSize || (d?.totalParts && String(d.totalParts).trim() !== '') || (d?.rejection && String(d.rejection).trim() !== '')),
     onSave: () => {
       // Only show save notification if form has meaningful data
-      if (formData.selectedItem || formData.partSize || formData.totalParts || formData.rejection) {
+      if (formData.selectedItem || formData.partSize || formData.specialSize || formData.totalParts || formData.rejection) {
         setHasDraft(true);
       }
     },
@@ -73,7 +74,7 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
           ...savedData,
           totalParts: savedData.totalParts || savedData.quantity || '',
         };
-        if (migrated && (migrated.selectedItem || migrated.partSize || migrated.totalParts || migrated.rejection)) {
+        if (migrated && (migrated.selectedItem || migrated.partSize || migrated.specialSize || migrated.totalParts || migrated.rejection)) {
           setFormData(migrated);
         }
         setHasDraft(true);
@@ -119,7 +120,7 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
     // Calculate form completion progress
     let progress = 0;
     if (formData.selectedItem) progress += 33;
-    if (formData.partSize) progress += 33;
+    if (formData.partSize || formData.specialSize) progress += 33;
     if (formData.totalParts && parseInt(formData.totalParts) > 0) progress += 34;
     setFormProgress(progress);
   }, [formData]);
@@ -135,7 +136,7 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
     }
     
     // Reset form when job type changes
-    setFormData({ selectedItem: '', partSize: '', totalParts: '', rejection: '', operation: '' });
+    setFormData({ selectedItem: '', partSize: '', specialSize: '', totalParts: '', rejection: '', operation: '' });
     setValidationErrors({});
   };
 
@@ -146,8 +147,8 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
       errors.selectedItem = `Please select a ${getItemLabel().toLowerCase()}`;
     }
     
-    if (!formData.partSize) {
-      errors.partSize = 'Please select a part size';
+    if (!formData.partSize && !formData.specialSize) {
+      errors.partSize = 'Please select a part size or enter special size';
     }
     
     if (!formData.totalParts) {
@@ -222,7 +223,7 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
         jobType: jobType,
         code: jobType === 'sleeve' ? formData.selectedItem : undefined,
         partName: jobType !== 'sleeve' ? formData.selectedItem : undefined,
-        partSize: formData.partSize,
+        partSize: formData.specialSize || formData.partSize,
         operation: formData.operation || undefined,
         totalParts: totalParts,
         rejection: rejection,
@@ -250,7 +251,7 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
       }
       
     // Reset form and go back
-  setFormData({ selectedItem: '', partSize: '', totalParts: '', rejection: '', operation: '' });
+  setFormData({ selectedItem: '', partSize: '', specialSize: '', totalParts: '', rejection: '', operation: '' });
       onComplete();
       
     } catch (error) {
@@ -267,7 +268,7 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
 
   const handleClearDraft = () => {
     clearSavedData();
-    setFormData({ selectedItem: '', partSize: '', totalParts: '', rejection: '', operation: '' });
+    setFormData({ selectedItem: '', partSize: '', specialSize: '', totalParts: '', rejection: '', operation: '' });
     setHasDraft(false);
     toast.success('Draft cleared');
   };
@@ -277,12 +278,13 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
     sleeve: ['CASTING', 'BORE', 'LENGTH', 'RUF OD', 'FINAL OD', 'OD GRINDING', 'SLEEVE PORT', 'PACKING'],
     rod: ['SMALL BORE GRINDING', 'BIG BORE GRINDING', 'SMALL BORE HORING', 'BIG BORE HORING', 'ASSEMBLY', 'PACKING'],
     pin: [
-      'Pin raw material',
-      'Pin machining',
-      'Pin hole',
-      'Pin hardening',
-      'Pin gray',
-      'Pin grinding'
+      'PIN RAW MATERIAL',
+      'PIN MACHINING',
+      'PIN HOLE',
+      'PIN HARDENING',
+      'PIN GRAY',
+      'PIN GRINDING',
+      'PACKING'
     ],
   };
 
@@ -534,6 +536,22 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
                   ))}
                 </SelectContent>
               </Select>
+              <div className="pt-2">
+                <Label htmlFor="specialSize" className="text-sm text-gray-600">Or enter special size</Label>
+                <Input
+                  id="specialSize"
+                  value={formData.specialSize}
+                  onChange={(e) => {
+                    setFormData({...formData, specialSize: e.target.value});
+                    if (e.target.value) {
+                      setValidationErrors(prev => ({...prev, partSize: ''}));
+                    }
+                  }}
+                  placeholder="e.g., 12.5 x 45mm"
+                  className="h-10 mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">Filling this makes size selection optional.</p>
+              </div>
               {validationErrors.partSize && (
                 <p className="text-sm text-red-600 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
