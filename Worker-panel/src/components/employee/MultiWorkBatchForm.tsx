@@ -277,22 +277,21 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
           })}
           <div className="flex flex-col sm:flex-row flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={addEntry} className="h-11 w-full sm:w-auto"><Plus className="w-4 h-4 mr-1" /> Add Entry</Button>
-            <Button
+            <button
               type="button"
-              // always attach handler; guard inside directSubmit already
               onClick={directSubmit}
-              variant={submitEnabled ? 'default' : 'outline'}
-              className={submitButtonClasses + ' relative'}
               disabled={!submitEnabled}
               aria-disabled={!submitEnabled}
-              style={{ opacity: 1 }}
+              data-state={submitEnabled ? 'enabled' : 'disabled'}
+              className={submitButtonClasses + ' relative focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-blue-500/50'}
+              style={{display:'inline-flex'}}
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{isSubmitting ? 'Submitting…' : 'Submit'}</span>
               {!submitEnabled && !isSubmitting && (
                 <span className="absolute inset-0 pointer-events-none border-2 border-dashed border-blue-300 rounded-md" aria-hidden="true"></span>
               )}
-            </Button>
+            </button>
             <Button type="button" variant="outline" onClick={onComplete} className="h-11 w-full sm:w-auto">Cancel</Button>
             {!submitEnabled && disabledReason && (
               <div className="text-xs text-red-600 w-full sm:w-auto" role="alert">
