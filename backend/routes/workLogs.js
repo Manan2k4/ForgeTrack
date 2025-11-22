@@ -189,9 +189,9 @@ router.post('/', auth, async (req, res) => {
       date: workLog.workDate,
       timestamp: workLog.createdAt
     };
-    res.status(201).json({ success: true, message: 'Work log created successfully', data: formattedLog });
-    // Broadcast create event
+    // Broadcast create event BEFORE responding (slightly lower latency for admin panel)
     broadcastWorkLog('created', { log: formattedLog });
+    res.status(201).json({ success: true, message: 'Work log created successfully', data: formattedLog });
   } catch (error) {
     console.error('Create work log error:', error);
     if (error.name === 'ValidationError') {
