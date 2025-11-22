@@ -123,6 +123,23 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
     return e.selectedItem && (e.partSize || e.specialSize) && !isNaN(total) && total > 0 && rej >= 0 && rej <= total && (operationOptions.length === 0 || e.operation);
   });
 
+  // Provide a human-readable reason why submit is disabled (first failing rule)
+  const disabledReason = (() => {
+    if (isSubmitting) return 'Submitting…';
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      if (!e.selectedItem) return 'Select item';
+      if (!e.partSize && !e.specialSize) return 'Add size or special size';
+      const total = parseInt(e.totalParts);
+      if (!e.totalParts || isNaN(total) || total <= 0) return 'Enter total parts';
+      const rej = e.rejection ? parseInt(e.rejection) : 0;
+      if (rej < 0) return 'Rejection cannot be negative';
+      if (!isNaN(total) && rej > total) return 'Rejection > total';
+      if (operationOptions.length > 0 && !e.operation) return 'Choose operation';
+    }
+    return '';
+  })();
+
   // startReview removed (no review step)
 
   const confirmSubmit = async () => {
@@ -255,9 +272,20 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
           })}
           <div className="flex flex-col sm:flex-row flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={addEntry} className="h-11 w-full sm:w-auto"><Plus className="w-4 h-4 mr-1" /> Add Entry</Button>
-            {/* Review button removed */}
-            <Button type="button" onClick={directSubmit} className="h-11 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50" disabled={!canSubmit || isSubmitting}><CheckCircle2 className="w-4 h-4 mr-1" /> {isSubmitting ? 'Submitting…' : 'Submit'}</Button>
+            <Button
+              type="button"
+              onClick={directSubmit}
+              className="h-11 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-blue-100 disabled:text-blue-600 disabled:border disabled:border-blue-200 disabled:opacity-100"
+              disabled={!canSubmit || isSubmitting}
+            >
+              <CheckCircle2 className="w-4 h-4 mr-1" /> {isSubmitting ? 'Submitting…' : 'Submit'}
+            </Button>
             <Button type="button" variant="outline" onClick={onComplete} className="h-11 w-full sm:w-auto">Cancel</Button>
+            {(!canSubmit || isSubmitting) && (
+              <div className="text-xs text-red-600 w-full sm:w-auto">
+                {disabledReason}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
