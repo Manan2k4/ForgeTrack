@@ -246,6 +246,8 @@ export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmp
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Connection status badges commented out */}
+            {/**
             {connectionStatus.isDatabaseConnected ? (
               <div className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-1 rounded-full text-xs">
                 <Database className="w-3 h-3" />
@@ -267,6 +269,7 @@ export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmp
                 <span>Offline</span>
               </div>
             )}
+            */}
             <Button onClick={onLogout} variant="ghost" size="sm">
               <LogOut className="w-4 h-4" />
             </Button>
@@ -302,7 +305,7 @@ export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmp
           </div>
         </div>
 
-        {/* Connectivity Status */}
+        {/* Connectivity Status section commented out
         <div>
           <h2 className="text-lg font-medium mb-4 text-gray-900">Connection Status</h2>
           <div className="grid grid-cols-1 gap-3">
@@ -342,6 +345,7 @@ export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmp
             )}
           </div>
         </div>
+        */}
 
         {/* Database Setup Guide */}
         <DatabaseSetupGuide connectionStatus={connectionStatus} />
