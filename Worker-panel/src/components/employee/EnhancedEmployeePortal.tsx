@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { EnhancedWorkForm } from './EnhancedWorkForm';
+// Single Entry (EnhancedWorkForm) temporarily disabled – kept as backup.
+// import { EnhancedWorkForm } from './EnhancedWorkForm';
 import { MultiWorkBatchForm } from './MultiWorkBatchForm';
 import { DatabaseSetupGuide } from './DatabaseSetupGuide';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
@@ -41,7 +42,8 @@ type ViewMode = 'jobs' | 'work-form';
 export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmployeePortalProps) {
   const [selectedJob, setSelectedJob] = useState<JobType>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('jobs');
-  const [batchMode, setBatchMode] = useState(false);
+  // Force batch mode only; single entry disabled.
+  const [batchMode, setBatchMode] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState({ isOnline: true, isDatabaseConnected: false });
   const [syncQueueLength, setSyncQueueLength] = useState(0);
 
@@ -124,13 +126,14 @@ export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmp
     }
     setSelectedJob(jobType);
     setViewMode('work-form');
-    setBatchMode(false);
+    // keep batch mode pinned
+    setBatchMode(true);
   };
 
   const handleJobComplete = () => {
     setSelectedJob(null);
     setViewMode('jobs');
-    setBatchMode(false);
+    setBatchMode(true);
     updateConnectionStatus();
     
     // Success haptic feedback
@@ -142,7 +145,7 @@ export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmp
   const handleBackToJobs = () => {
     setSelectedJob(null);
     setViewMode('jobs');
-    setBatchMode(false);
+    setBatchMode(true);
   };
 
   // Get formatted time for last entry
@@ -178,25 +181,26 @@ export function EnhancedEmployeePortal({ user, onLogout, isOnline }: EnhancedEmp
         </header>
         
         <main className="p-4 space-y-3">
+          {/* Batch mode only – Single Entry toggle removed */}
           <div className="flex justify-end gap-2">
-            <Button size="sm" variant={batchMode ? 'default' : 'outline'} onClick={() => setBatchMode(true)}>Batch Mode</Button>
-            <Button size="sm" variant={!batchMode ? 'default' : 'outline'} onClick={() => setBatchMode(false)}>Single Entry</Button>
+            <Button size="sm" variant="default" disabled>Batch Mode (Active)</Button>
+            {/* <Button size="sm" variant="outline" onClick={() => setBatchMode(false)}>Single Entry</Button> */}
           </div>
-          {batchMode ? (
-            <MultiWorkBatchForm
-              jobType={selectedJob as any}
-              employeeId={user.id}
-              onComplete={handleJobComplete}
-              isOnline={connectionStatus.isOnline}
-            />
-          ) : (
-            <EnhancedWorkForm
-              jobType={selectedJob as any}
-              employeeId={user.id}
-              onComplete={handleJobComplete}
-              isOnline={connectionStatus.isOnline}
-            />
-          )}
+          {/* Always render batch form; single entry kept commented below as backup */}
+          <MultiWorkBatchForm
+            jobType={selectedJob as any}
+            employeeId={user.id}
+            onComplete={handleJobComplete}
+            isOnline={connectionStatus.isOnline}
+          />
+          {/** Backup single entry form – re-enable by uncommenting import & block
+          <EnhancedWorkForm
+            jobType={selectedJob as any}
+            employeeId={user.id}
+            onComplete={handleJobComplete}
+            isOnline={connectionStatus.isOnline}
+          />
+          */}
         </main>
       </div>
     );
