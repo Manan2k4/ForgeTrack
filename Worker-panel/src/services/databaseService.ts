@@ -195,19 +195,25 @@ class DatabaseService {
 
   // Work Logs
   async saveWorkLog(workLog: Omit<WorkLog, 'id' | 'timestamp'>): Promise<WorkLog> {
+    // Pre-map product and productId for both online and offline paths
+    let product: Product | undefined;
+    try {
+      const products: Product[] = await this.getProducts(workLog.jobType);
+      if (workLog.jobType === 'sleeve' && workLog.code) {
+        product = products.find(p => p.code === workLog.code);
+      } else if ((workLog.jobType === 'rod' || workLog.jobType === 'pin') && workLog.partName) {
+        product = products.find(p => p.partName === workLog.partName);
+      }
+    } catch (e) {
+      // ignore mapping errors here; offline path will still proceed
+    }
+
+    const productId = product ? ((product as any)._id || (product as any).id) : undefined;
+
     // Attempt online save using backend contract (productId, partSize, totalParts, rejection)
     if (this.isDatabaseConnected) {
       try {
-        // Map to productId using cached products
-        const products: Product[] = await this.getProducts(workLog.jobType);
-        let product: Product | undefined;
-        if (workLog.jobType === 'sleeve' && workLog.code) {
-          product = products.find(p => p.code === workLog.code);
-        } else if ((workLog.jobType === 'rod' || workLog.jobType === 'pin') && workLog.partName) {
-          product = products.find(p => p.partName === workLog.partName);
-        }
-
-        if (!product) {
+        if (!productId) {
           throw new Error('Matching product not found for work log');
         }
 
@@ -218,7 +224,7 @@ class DatabaseService {
             'Authorization': `Bearer ${this.getAuthToken()}`,
           },
           body: JSON.stringify({
-            productId: (product as any)._id || (product as any).id,
+            productId,
             partSize: workLog.partSize,
             operation: (workLog as any).operation,
             totalParts: workLog.totalParts,
@@ -248,7 +254,7 @@ class DatabaseService {
           return normalized;
         }
       } catch (error) {
-        console.log('Failed to save to database, queuing for sync');
+        console.log('Failed to save to database, queuing for sync', error);
         // fall through to offline
       }
     }
@@ -256,6 +262,7 @@ class DatabaseService {
     // Offline/local save path
     const fullWorkLog: WorkLog = {
       ...workLog,
+      productId, // keep for later sync attempt
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
       offline: true,
@@ -338,6 +345,26 @@ class DatabaseService {
     for (const item of this.syncQueue) {
       try {
         if (item.type === 'workLog') {
+          // Ensure productId present; attempt remap if missing
+          if (!item.data.productId) {
+            try {
+              const products: Product[] = await this.getProducts(item.data.jobType);
+              let prod: Product | undefined;
+              if (item.data.jobType === 'sleeve' && item.data.code) {
+                prod = products.find(p => p.code === item.data.code);
+              } else if ((item.data.jobType === 'rod' || item.data.jobType === 'pin') && item.data.partName) {
+                prod = products.find(p => p.partName === item.data.partName);
+              }
+              if (prod) {
+                item.data.productId = (prod as any)._id || (prod as any).id;
+              }
+            } catch {}
+          }
+          // Fallback: if still no productId, skip this cycle (retain item)
+          if (!item.data.productId) {
+            failedItems.push(item);
+            continue;
+          }
           const response = await fetch(buildUrl('/work-logs'), {
             method: 'POST',
             headers: {
