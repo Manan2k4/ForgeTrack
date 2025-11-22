@@ -263,7 +263,7 @@ export function ViewLogs() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
             <div className="space-y-2">
               <label className="text-sm font-medium">From</label>
               <input
@@ -290,7 +290,7 @@ export function ViewLogs() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Employee</label>
               <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent>
@@ -307,7 +307,7 @@ export function ViewLogs() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Job Type</label>
               <Select value={selectedJobType} onValueChange={setSelectedJobType}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue placeholder="Select job type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -321,7 +321,7 @@ export function ViewLogs() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Department</label>
               <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
