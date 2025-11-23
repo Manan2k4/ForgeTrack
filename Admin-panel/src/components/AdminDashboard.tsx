@@ -8,7 +8,7 @@ import { AddParty } from './admin/AddParty';
 import { AddJobType } from './admin/AddJobType';
 import { ViewLogs } from './admin/ViewLogs';
 import { TransporterLogs } from './admin/TransporterLogs';
-import { LogOut, Users, UserPlus, Package, Activity, Menu, Truck, BarChart2 } from 'lucide-react';
+import { LogOut, Users, UserPlus, Package, Activity, Menu, Truck, BarChart2, Building2, Wrench } from 'lucide-react';
 import Analytics from './admin/Analytics';
 
 interface User {
@@ -41,14 +41,14 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const sidebarItems = [
-    { id: 'add-employee' as const, label: 'Add Employee', icon: UserPlus },
-    { id: 'manage-employees' as const, label: 'Manage Employees', icon: Users },
-    { id: 'add-product' as const, label: 'Add Product', icon: Package },
-    { id: 'add-party' as const, label: 'Add Party', icon: Users },
-    { id: 'add-job-type' as const, label: 'Add Job Type', icon: Activity },
-    { id: 'view-logs' as const, label: 'View Logs', icon: Activity },
-    { id: 'transporter-logs' as const, label: 'Transporter Logs', icon: Truck },
-    { id: 'analytics' as const, label: 'Analytics', icon: BarChart2 },
+    { id: 'add-employee' as const, label: 'Add Employee', icon: UserPlus }, // hiring action
+    { id: 'manage-employees' as const, label: 'Manage Employees', icon: Users }, // people list
+    { id: 'add-product' as const, label: 'Add Product', icon: Package }, // inventory
+    { id: 'add-party' as const, label: 'Add Party', icon: Building2 }, // external parties/vendors
+    { id: 'add-job-type' as const, label: 'Add Job Type', icon: Wrench }, // operations / work definitions
+    { id: 'view-logs' as const, label: 'View Logs', icon: Activity }, // internal production logs
+    { id: 'transporter-logs' as const, label: 'Transporter Logs', icon: Truck }, // transport operations
+    { id: 'analytics' as const, label: 'Analytics', icon: BarChart2 }, // charts & stats
   ];
 
   const renderActiveComponent = () => {
