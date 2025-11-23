@@ -95,10 +95,28 @@ export function AddJobType() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {group.map(j => (
+                      {group.map(j => {
+                        const formatDateDMY = (value: string) => {
+                          if (!value) return '—';
+                          const core = value.split('T')[0];
+                          const parts = core.includes('-') ? core.split('-') : [];
+                          if (parts.length === 3) {
+                            const [y,m,d] = parts;
+                            return `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
+                          }
+                          try {
+                            const d = new Date(value);
+                            const day = String(d.getDate()).padStart(2,'0');
+                            const month = String(d.getMonth()+1).padStart(2,'0');
+                            const year = d.getFullYear();
+                            if (!year || isNaN(year)) return value;
+                            return `${day}/${month}/${year}`;
+                          } catch { return value; }
+                        };
+                        return (
                         <TableRow key={j.id}>
                           <TableCell>{j.jobName}</TableCell>
-                          <TableCell>{new Date(j.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>{formatDateDMY(j.createdAt)}</TableCell>
                           <TableCell>
                             <div className="flex gap-2">
                               <Button variant="outline" size="sm" onClick={() => openEdit(j)}><Edit className="w-4 h-4" /></Button>
@@ -120,7 +138,7 @@ export function AddJobType() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                      )})}
                     </TableBody>
                   </Table>
                 </div>

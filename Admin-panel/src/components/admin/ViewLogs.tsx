@@ -193,6 +193,26 @@ export function ViewLogs() {
   }, {});
   const sortedDates: string[] = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a));
 
+  // Date formatting helper (YYYY-MM-DD or ISO -> dd/mm/yyyy)
+  const formatDateDMY = (value: string) => {
+    if (!value) return '—';
+    // If already in YYYY-MM-DD form
+    const core = value.split('T')[0];
+    const parts = core.includes('-') ? core.split('-') : [];
+    if (parts.length === 3) {
+      const [y,m,d] = parts;
+      return `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
+    }
+    try {
+      const d = new Date(value);
+      const day = String(d.getDate()).padStart(2,'0');
+      const month = String(d.getMonth()+1).padStart(2,'0');
+      const year = d.getFullYear();
+      if (!year || isNaN(year)) return value;
+      return `${day}/${month}/${year}`;
+    } catch { return value; }
+  };
+
   // Dynamic operation options now loaded from backend job types
 
   const exportWorkLogs = () => {
@@ -422,7 +442,7 @@ export function ViewLogs() {
         sortedDates.map(date => (
           <Card key={date}>
             <CardHeader>
-              <CardTitle>{new Date(date).toLocaleDateString()}</CardTitle>
+              <CardTitle>{formatDateDMY(date)}</CardTitle>
               <CardDescription>
                 {groupedByDate[date].length} entr{groupedByDate[date].length === 1 ? 'y' : 'ies'}
               </CardDescription>
