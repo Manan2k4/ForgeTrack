@@ -18,6 +18,12 @@ interface Product {
   sizes: string[];
 }
 
+interface JobType {
+  id: string;
+  name: string;
+  partType: 'sleeve' | 'rod' | 'pin';
+}
+
 interface WorkLog {
   id: string;
   employeeId: string;
@@ -188,6 +194,41 @@ class DatabaseService {
     // Fallback to local storage
     const products = JSON.parse(localStorage.getItem('products') || '[]');
     return type ? products.filter((p: Product) => p.type === type) : products;
+  }
+
+  // Job Types
+  async getJobTypes(partType?: 'sleeve' | 'rod' | 'pin'): Promise<JobType[]> {
+    if (this.isDatabaseConnected) {
+      try {
+        const url = partType ? buildUrl(`/job-types?partType=${partType}`) : buildUrl('/job-types');
+        const token = this.getAuthToken();
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const response = await fetch(url, { headers });
+        if (response.ok) {
+          const json = await response.json();
+            const jobTypes: JobType[] = (json.data || []).map((jt: any) => ({
+              id: jt.id || jt._id || Date.now().toString(),
+              name: jt.name,
+              partType: jt.partType,
+            }));
+            this.cacheJobTypes(jobTypes);
+            return partType ? jobTypes.filter(j => j.partType === partType) : jobTypes;
+        }
+      } catch (e) {
+        console.log('Network request failed, using cached job types');
+      }
+    }
+    const cached: JobType[] = JSON.parse(localStorage.getItem('jobTypes') || '[]');
+    return partType ? cached.filter(j => j.partType === partType) : cached;
+  }
+
+  private cacheJobTypes(jobTypes: JobType[]): void {
+    // Merge by id to avoid duplicates
+    const existing: JobType[] = JSON.parse(localStorage.getItem('jobTypes') || '[]');
+    const map = new Map<string, JobType>();
+    [...existing, ...jobTypes].forEach(j => map.set(j.id, j));
+    localStorage.setItem('jobTypes', JSON.stringify(Array.from(map.values())));
   }
 
   private cacheProducts(products: Product[]): void {

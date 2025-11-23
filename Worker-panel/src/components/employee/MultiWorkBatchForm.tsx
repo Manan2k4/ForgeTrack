@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -14,11 +14,7 @@ interface Product { id: string; type: 'sleeve' | 'rod' | 'pin'; code?: string; p
 interface MultiWorkBatchFormProps { jobType: 'rod' | 'sleeve' | 'pin'; employeeId: string; onComplete: () => void; isOnline: boolean; }
 interface Entry { id: string; selectedItem: string; partSize: string; specialSize: string; totalParts: string; rejection: string; operation: string; }
 
-const OPERATION_OPTIONS: Record<string, string[]> = {
-  sleeve: ['CASTING', 'BORE', 'LENGTH', 'RUF OD', 'FINAL OD', 'OD GRINDING', 'SLEEVE PORT', 'PACKING'],
-  rod: ['SMALL BORE GRINDING', 'BIG BORE GRINDING', 'SMALL BORE HORING', 'BIG BORE HORING', 'ASSEMBLY', 'PACKING'],
-  pin: ['PIN RAW MATERIAL', 'PIN MACHINING', 'PIN HOLE', 'PIN HARDENING', 'PIN GRAY', 'PIN GRINDING', 'PACKING'],
-};
+// Dynamic operations are fetched from backend job types; no hardcoded fallback
 
 export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }: MultiWorkBatchFormProps) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -76,7 +72,7 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
 
   const getItemLabel = () => jobType === 'sleeve' ? 'Code' : 'Part Name';
   const getItems = () => products.map(p => ({ value: jobType === 'sleeve' ? p.code! : p.partName!, label: jobType === 'sleeve' ? p.code! : p.partName! }));
-  const operationOptions = OPERATION_OPTIONS[jobType] || [];
+  const [operationOptions, setOperationOptions] = useState<string[]>([]);
 
   const updateEntry = (id: string, patch: Partial<Entry>) => {
     setEntries(prev => prev.map(e => e.id === id ? { ...e, ...patch } : e));
@@ -89,6 +85,28 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
   const addEntry = () => {
     setEntries(prev => [...prev, createEmptyEntry()]);
   };
+
+  // Load dynamic operations when jobType changes
+  useEffect(() => {
+    let cancelled = false;
+    const loadOps = async () => {
+      try {
+        const jobTypes: any[] = await (databaseService as any).getJobTypes?.(jobType);
+        const names = (jobTypes || []).filter(j => j.partType === jobType).map(j => j.name);
+        if (!cancelled) {
+          setOperationOptions(names);
+          // Cache partType-specific names for offline use
+          localStorage.setItem(`jobNames_cache_${jobType}`, JSON.stringify(names));
+        }
+      } catch (e) {
+        // Offline fallback
+        const cached = JSON.parse(localStorage.getItem(`jobNames_cache_${jobType}`) || '[]');
+        setOperationOptions(Array.isArray(cached) ? cached : []);
+      }
+    };
+    loadOps();
+    return () => { cancelled = true; };
+  }, [jobType]);
 
   // Update sizes map when selected item changes
   useEffect(() => {

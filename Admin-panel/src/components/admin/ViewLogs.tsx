@@ -35,10 +35,32 @@ export function ViewLogs() {
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
   const [selectedJobType, setSelectedJobType] = useState<string>('all');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [operationOptionsMap, setOperationOptionsMap] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     loadWorkLogs();
+    loadJobTypes();
   }, []);
+
+  const loadJobTypes = async () => {
+    try {
+      const resp = await apiService.getJobTypes();
+      const list = (resp.data || []) as any[];
+      const map: Record<string, string[]> = {};
+      list.forEach(jt => {
+        if (!jt.partType) return;
+        if (!map[jt.partType]) map[jt.partType] = [];
+        map[jt.partType].push(jt.name);
+      });
+      setOperationOptionsMap(map);
+      // Cache for offline usage
+      localStorage.setItem('admin_jobTypes_cache', JSON.stringify(map));
+    } catch (e) {
+      // Offline fallback
+      const cached = JSON.parse(localStorage.getItem('admin_jobTypes_cache') || '{}');
+      if (cached && typeof cached === 'object') setOperationOptionsMap(cached);
+    }
+  };
 
   // SSE real-time subscription
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -169,19 +191,7 @@ export function ViewLogs() {
   }, {});
   const sortedDates: string[] = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a));
 
-  // Centralized operation options per part type; pin can be populated later
-  const OPERATION_OPTIONS: Record<string, string[]> = {
-    sleeve: ['CASTING', 'BORE', 'LENGTH', 'RUF OD', 'FINAL OD', 'OD GRINDING', 'SLEEVE PORT', 'PACKING'],
-    rod: ['SMALL BORE GRINDING', 'BIG BORE GRINDING', 'SMALL BORE HORING', 'BIG BORE HORING', 'ASSEMBLY', 'PACKING'],
-    pin: [
-      'Pin raw material',
-      'Pin machining',
-      'Pin hole',
-      'Pin hardening',
-      'Pin gray',
-      'Pin grinding'
-    ],
-  };
+  // Dynamic operation options now loaded from backend job types
 
   const exportWorkLogs = () => {
     try {
@@ -501,7 +511,7 @@ export function ViewLogs() {
                 <label className="text-sm font-medium">Job Type (operation)</label>
                 {(() => {
                   const partType = editing.log.jobType as string;
-                  const options = OPERATION_OPTIONS[partType] || [];
+                  const options = operationOptionsMap[partType] || [];
                   if (options.length > 0) {
                     return (
                       <Select
