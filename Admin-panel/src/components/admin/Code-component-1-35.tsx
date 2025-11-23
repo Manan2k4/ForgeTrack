@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -32,6 +32,7 @@ export function AddProduct() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   // Raw text for editing sizes to allow user to type commas (including trailing) before parsing on save
   const [editingSizesRaw, setEditingSizesRaw] = useState('');
+  const editSizesInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     loadProducts();
@@ -335,19 +336,27 @@ export function AddProduct() {
               <div className="space-y-2">
                 <Label>Sizes</Label>
                 <Input
+                  ref={editSizesInputRef}
+                  type="text"
                   value={editingSizesRaw}
                   onChange={(e) => setEditingSizesRaw(e.target.value)}
                   onKeyDown={(e) => {
-                    // Fallback: if comma key is pressed but component would block it, manually append
                     if (e.key === ',') {
-                      // Allow native insertion if it works; small timeout to detect disappearance
-                      const before = editingSizesRaw;
-                      setTimeout(() => {
-                        // If value unchanged (comma blocked), append manually
-                        if (editingSizesRaw === before) {
-                          setEditingSizesRaw(prev => prev + (prev.endsWith(' ') || prev === '' ? ',' : ', '));
+                      // Some environments may block comma; manually inject
+                      e.preventDefault();
+                      const el = editSizesInputRef.current;
+                      const current = editingSizesRaw;
+                      const pos = el ? el.selectionStart ?? current.length : current.length;
+                      const insertion = ','; // minimal insertion
+                      const next = current.slice(0, pos) + insertion + current.slice(pos);
+                      setEditingSizesRaw(next);
+                      requestAnimationFrame(() => {
+                        if (el) {
+                          const newCaret = pos + insertion.length;
+                          el.selectionStart = newCaret;
+                          el.selectionEnd = newCaret;
                         }
-                      }, 10);
+                      });
                     }
                   }}
                   inputMode="text"
