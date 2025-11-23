@@ -14,26 +14,8 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
 
-  // Fixed dropdown options provided by user
-  const PARTY_OPTIONS: Record<TransportJob, string[]> = {
-    'outside-rod': [
-      'PRINCE-OUT SIDE',
-      'SIDHESAR GRINDING',
-      'ARTI',
-      'RAVI METAL',
-      'MANSHU ROD THRU',
-      'RAONK',
-      'PRINCE-IN SIDE',
-    ],
-    'outside-pin': [
-      'PRINCE-OUT SIDE',
-      'MAA KRUPA',
-      'CHIRAG PIN',
-      'RAVI METAL',
-      'VISHWASH',
-      'PRINCE-IN SIDE',
-    ],
-  };
+  // Dynamic parties loaded from API
+  const [partyOptions, setPartyOptions] = useState<string[]>([]);
 
   const { clearSavedData } = useAutoSave({
     key: `transporterDraft_${employeeId}`,
@@ -47,20 +29,25 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
     return () => clearInterval(i);
   }, []);
 
-  // Load products for rod/pin when jobType changes
+  // Load products for selected outside job type
   useEffect(() => {
     let active = true;
     const load = async () => {
       setLoadingProducts(true);
       try {
-        const mapType = jobType === 'outside-rod' ? 'rod' : 'pin';
+        const mapType = jobType === 'outside-rod' ? 'rod' : (jobType === 'outside-pin' ? 'pin' : 'sleeve');
         const token = localStorage.getItem('authToken');
         const resp = await fetch(buildUrl(`/products?type=${mapType}`), {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (resp.ok) {
           const json = await resp.json();
-          const list = (json.data || []).filter((p: any) => p.partName);
+          let list: Product[] = [];
+          if (mapType === 'sleeve') {
+            list = (json.data || []).filter((p: any) => p.code).map((p: any) => ({ partName: p.code, type: p.type }));
+          } else {
+            list = (json.data || []).filter((p: any) => p.partName);
+          }
           if (active) setProducts(list);
         } else if (active) {
           setProducts([]);
@@ -77,11 +64,35 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
     return () => { active = false; };
   }, [jobType]);
 
-  // Reset party name if current selection is not available for new job type
+  // Load parties when jobType changes
   useEffect(() => {
-    if (!PARTY_OPTIONS[jobType].includes(formData.partyName)) {
-      setFormData((d) => ({ ...d, partyName: '' }));
-    }
+    let active = true;
+    const loadParties = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const resp = await fetch(buildUrl(`/parties?partyType=${jobType}`), { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        if (resp.ok) {
+          const json = await resp.json();
+          const names = (json.data || []).map((p: any) => p.partyName);
+          if (active) {
+            setPartyOptions(names);
+            if (!names.includes(formData.partyName)) {
+              setFormData(d => ({ ...d, partyName: '' }));
+            }
+          }
+        } else if (active) {
+          setPartyOptions([]);
+          setFormData(d => ({ ...d, partyName: '' }));
+        }
+      } catch {
+        if (active) {
+          setPartyOptions([]);
+          setFormData(d => ({ ...d, partyName: '' }));
+        }
+      }
+    };
+    loadParties();
+    return () => { active = false; };
   }, [jobType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,6 +129,7 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
           <select value={jobType} onChange={(e) => setJobType(e.target.value as TransportJob)} className="input">
             <option value="outside-rod">Outside Rod</option>
             <option value="outside-pin">Outside Pin</option>
+            <option value="outside-sleeve">Outside Sleeve</option>
           </select>
         </div>
         <div>
@@ -128,7 +140,7 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
             onChange={(e) => setFormData({ ...formData, partyName: e.target.value })}
           >
             <option value="" disabled>Select party</option>
-            {PARTY_OPTIONS[jobType].map((p) => (
+            {partyOptions.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
           </select>

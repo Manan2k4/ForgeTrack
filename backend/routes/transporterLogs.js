@@ -107,7 +107,7 @@ router.post('/', auth, async (req, res) => {
   try {
     const { jobType, partyName, totalParts, rejection = 0, partName } = req.body;
 
-    if (!jobType || !['outside-rod', 'outside-pin'].includes(jobType)) {
+    if (!jobType || !['outside-rod', 'outside-pin', 'outside-sleeve'].includes(jobType)) {
       return res.status(400).json({ success: false, message: 'Invalid job type' });
     }
     if (!partyName) return res.status(400).json({ success: false, message: 'Party name is required' });
@@ -127,7 +127,7 @@ router.post('/', auth, async (req, res) => {
     // Validate partName matches an existing Product for corresponding type
     try {
       const Product = require('../models/Product');
-      const expectType = jobType === 'outside-rod' ? 'rod' : 'pin';
+      const expectType = jobType === 'outside-rod' ? 'rod' : (jobType === 'outside-pin' ? 'pin' : 'sleeve');
       const productExists = await Product.findOne({ partName, type: expectType }).lean();
       if (!productExists) {
         return res.status(400).json({ success: false, message: 'Part name does not match any existing product' });
@@ -199,7 +199,7 @@ router.patch('/:id', adminAuth, async (req, res) => {
     if (!log) return res.status(404).json({ success: false, message: 'Transporter log not found' });
 
     if (typeof jobType !== 'undefined') {
-      if (!['outside-rod', 'outside-pin'].includes(jobType)) {
+      if (!['outside-rod', 'outside-pin', 'outside-sleeve'].includes(jobType)) {
         return res.status(400).json({ success: false, message: 'Invalid job type' });
       }
       log.jobType = jobType;
@@ -214,7 +214,7 @@ router.patch('/:id', adminAuth, async (req, res) => {
       if (!partName) return res.status(400).json({ success: false, message: 'Part name cannot be empty' });
       try {
         const Product = require('../models/Product');
-        const expectType = (log.jobType === 'outside-rod') ? 'rod' : 'pin';
+        const expectType = (log.jobType === 'outside-rod') ? 'rod' : (log.jobType === 'outside-pin' ? 'pin' : 'sleeve');
         const productExists = await Product.findOne({ partName, type: expectType }).lean();
         if (!productExists) return res.status(400).json({ success: false, message: 'Part name not found for current job type' });
       } catch (e) {

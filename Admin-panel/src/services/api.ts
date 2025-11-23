@@ -304,6 +304,58 @@ class ApiService {
       uniqueEmployeesCount: number;
     }>(`/transporter-logs/stats${query}`);
   }
+
+  // Party endpoints
+  async getParties(partyType?: string) {
+    const query = partyType ? `?partyType=${partyType}` : '';
+    return this.request<any[]>(`/parties${query}`);
+  }
+
+  async createParty(data: { partyType: string; partyName: string }) {
+    return this.request<any>('/parties', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateParty(id: string, data: Partial<{ partyType: string; partyName: string }>) {
+    return this.request<any>(`/parties/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteParty(id: string) {
+    return this.request<any>(`/parties/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Job Type endpoints
+  async getJobTypes(partType?: string) {
+    const query = partType ? `?partType=${partType}` : '';
+    return this.request<any[]>(`/job-types${query}`);
+  }
+
+  async createJobType(data: { partType: string; jobName: string }) {
+    return this.request<any>('/job-types', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateJobType(id: string, data: Partial<{ partType: string; jobName: string }>) {
+    return this.request<any>(`/job-types/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteJobType(id: string) {
+    return this.request<any>(`/job-types/${id}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const apiService = new ApiService();

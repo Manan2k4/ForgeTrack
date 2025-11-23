@@ -1,6 +1,6 @@
 import { buildUrl, checkDatabaseConnection } from '../config/database';
 
-export type TransportJob = 'outside-rod' | 'outside-pin';
+export type TransportJob = 'outside-rod' | 'outside-pin' | 'outside-sleeve';
 
 interface TransportLog {
   id: string;

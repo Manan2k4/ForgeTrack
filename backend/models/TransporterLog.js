@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const transporterLogSchema = new mongoose.Schema({
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  jobType: { type: String, enum: ['outside-rod', 'outside-pin'], required: true },
+  jobType: { type: String, enum: ['outside-rod', 'outside-pin', 'outside-sleeve'], required: true },
   partyName: { type: String, required: true, trim: true },
   // Part name selected from Product list (rod/pin) for traceability
   partName: { type: String, trim: true },

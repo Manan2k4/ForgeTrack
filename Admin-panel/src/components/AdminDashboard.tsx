@@ -4,6 +4,8 @@ import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
 import { AddEmployee } from './admin/AddEmployee';
 import { ManageEmployees } from './admin/ManageEmployees';
 import { AddProduct } from './admin/AddProduct';
+import { AddParty } from './admin/AddParty';
+import { AddJobType } from './admin/AddJobType';
 import { ViewLogs } from './admin/ViewLogs';
 import { TransporterLogs } from './admin/TransporterLogs';
 import { LogOut, Users, UserPlus, Package, Activity, Menu, Truck, BarChart2 } from 'lucide-react';
@@ -22,7 +24,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type ActiveTab = 'add-employee' | 'manage-employees' | 'add-product' | 'view-logs' | 'transporter-logs' | 'analytics';
+type ActiveTab = 'add-employee' | 'manage-employees' | 'add-product' | 'add-party' | 'add-job-type' | 'view-logs' | 'transporter-logs' | 'analytics';
 
 export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
   // Persist the last selected tab; force default to 'view-logs'
@@ -42,6 +44,8 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
     { id: 'add-employee' as const, label: 'Add Employee', icon: UserPlus },
     { id: 'manage-employees' as const, label: 'Manage Employees', icon: Users },
     { id: 'add-product' as const, label: 'Add Product', icon: Package },
+    { id: 'add-party' as const, label: 'Add Party', icon: Users },
+    { id: 'add-job-type' as const, label: 'Add Job Type', icon: Activity },
     { id: 'view-logs' as const, label: 'View Logs', icon: Activity },
     { id: 'transporter-logs' as const, label: 'Transporter Logs', icon: Truck },
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart2 },
@@ -55,6 +59,10 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
         return <ManageEmployees />;
       case 'add-product':
         return <AddProduct />;
+      case 'add-party':
+        return <AddParty />;
+      case 'add-job-type':
+        return <AddJobType />;
       case 'view-logs':
         return <ViewLogs />;
       case 'transporter-logs':
