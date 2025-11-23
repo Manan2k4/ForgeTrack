@@ -41,6 +41,8 @@ interface EnhancedWorkFormProps {
 
 export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: EnhancedWorkFormProps) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [jobNameOptions, setJobNameOptions] = useState<string[]>([]);
+  const [jobNamesLoading, setJobNamesLoading] = useState(false);
   const [formData, setFormData] = useState({
     selectedItem: '',
     partSize: '',
@@ -88,6 +90,7 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
 
   useEffect(() => {
     loadProducts();
+    loadJobNames();
     
     // Monitor connection status
     const checkConnection = () => {
@@ -274,22 +277,32 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
     toast.success('Draft cleared');
   };
 
-  // Centralized operation options by job type; pin can be filled later
-  const OPERATION_OPTIONS: Record<string, string[]> = {
-    sleeve: ['CASTING', 'BORE', 'LENGTH', 'RUF OD', 'FINAL OD', 'OD GRINDING', 'SLEEVE PORT', 'PACKING'],
-    rod: ['SMALL BORE GRINDING', 'BIG BORE GRINDING', 'SMALL BORE HORING', 'BIG BORE HORING', 'ASSEMBLY', 'PACKING'],
-    pin: [
-      'PIN RAW MATERIAL',
-      'PIN MACHINING',
-      'PIN HOLE',
-      'PIN HARDENING',
-      'PIN GRAY',
-      'PIN GRINDING',
-      'PACKING'
-    ],
+  // Dynamic job type names (operations) fetched from admin-defined job types
+  const loadJobNames = async () => {
+    setJobNamesLoading(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const resp = await fetch(databaseService.buildUrl(`/job-types?partType=${jobType}`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        const names = (json.data || []).map((j: any) => j.jobName).filter(Boolean);
+        setJobNameOptions(names);
+        localStorage.setItem(`jobNames_cache_${jobType}`, JSON.stringify(names));
+      } else {
+        const cached = localStorage.getItem(`jobNames_cache_${jobType}`);
+        setJobNameOptions(cached ? JSON.parse(cached) : []);
+      }
+    } catch (e) {
+      const cached = localStorage.getItem(`jobNames_cache_${jobType}`);
+      setJobNameOptions(cached ? JSON.parse(cached) : []);
+    } finally {
+      setJobNamesLoading(false);
+    }
   };
 
-  const getOperationOptions = () => OPERATION_OPTIONS[jobType] || [];
+  const getOperationOptions = () => jobNameOptions;
 
   const getItemLabel = () => {
     switch (jobType) {
@@ -452,7 +465,7 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
             {getOperationOptions().length > 0 && (
               <div className="space-y-2">
                 <Label htmlFor="operation" className="text-base font-medium">
-                  Job Type *
+                  Job Name *
                 </Label>
                 <Select 
                   value={formData.operation} 
@@ -462,7 +475,7 @@ export function EnhancedWorkForm({ jobType, employeeId, onComplete, isOnline }: 
                   }}
                 >
                   <SelectTrigger className={`h-12 ${validationErrors.operation ? 'border-red-300' : ''}`}>
-                    <SelectValue placeholder="Select job type" />
+                    <SelectValue placeholder={jobNamesLoading ? 'Loading...' : 'Select job name'} />
                   </SelectTrigger>
                   <SelectContent>
                     {getOperationOptions().map(op => (

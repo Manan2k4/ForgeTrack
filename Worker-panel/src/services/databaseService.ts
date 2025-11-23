@@ -404,6 +404,11 @@ class DatabaseService {
     return localStorage.getItem('authToken') || '';
   }
 
+  // Expose buildUrl for components needing direct endpoint access
+  public buildUrl(path: string): string {
+    return buildUrl(path);
+  }
+
   public getConnectionStatus(): { isOnline: boolean; isDatabaseConnected: boolean } {
     return {
       isOnline: this.isOnline,
