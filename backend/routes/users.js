@@ -40,6 +40,24 @@ router.get('/employees', adminAuth, async (req, res) => {
   }
 });
 
+// View single employee password (admin only)
+router.get('/employees/:id/password', adminAuth, async (req, res) => {
+  try {
+    const employee = await User.findById(req.params.id).select('+passwordEnc');
+    if (!employee || employee.role !== 'employee') {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+    const plain = employee.getPlainPassword();
+    if (!plain) {
+      return res.status(400).json({ success: false, message: 'Password not available (encryption key missing or reset required)' });
+    }
+    return res.json({ success: true, data: { employeeId: employee._id, password: plain } });
+  } catch (error) {
+    console.error('View password error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to retrieve password', error: error.message });
+  }
+});
+
 // Create new employee (admin only)
 router.post('/employees', adminAuth, async (req, res) => {
   try {
@@ -179,6 +197,8 @@ router.put('/employees/:id', adminAuth, async (req, res) => {
     // If password provided, set and let pre('save') hash it
     if (password && password.trim().length >= 6) {
       employee.password = password;
+      // Optional: flag to force change next login if admin changed password
+      employee.forceChangePassword = true;
     }
 
     await employee.save();

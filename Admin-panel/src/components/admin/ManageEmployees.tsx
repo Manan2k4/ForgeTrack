@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { toast } from 'sonner';
-import { Trash2, Users, Pencil, Download } from 'lucide-react';
+import { Trash2, Users, Pencil, Download, Eye, Clipboard } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -35,6 +35,10 @@ export function ManageEmployees() {
     address: '',
     department: '',
   });
+  const [viewingPasswordFor, setViewingPasswordFor] = useState<Employee | null>(null);
+  const [passwordPlain, setPasswordPlain] = useState<string | null>(null);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const departments = [
     'Sleeve Workshop',
@@ -111,6 +115,32 @@ export function ManageEmployees() {
       address: emp.address || '',
       department: emp.department || '',
     });
+  };
+
+  const openViewPassword = async (emp: Employee) => {
+    setViewingPasswordFor(emp);
+    setPasswordPlain(null);
+    setPasswordError(null);
+    setPasswordLoading(true);
+    try {
+      const resp: any = await (apiService as any).viewEmployeePassword(emp.id);
+      if (resp?.success && resp?.data?.password) {
+        setPasswordPlain(resp.data.password);
+      } else {
+        setPasswordError(resp?.message || 'Password not available');
+      }
+    } catch (error: any) {
+      setPasswordError(error?.message || 'Failed to fetch password');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const closeViewPassword = () => {
+    setViewingPasswordFor(null);
+    setPasswordPlain(null);
+    setPasswordError(null);
+    setPasswordLoading(false);
   };
 
   const submitEdit = async () => {
@@ -249,6 +279,33 @@ export function ManageEmployees() {
                             <Button variant="outline" size="sm" onClick={() => openEdit(employee)}>
                               <Pencil className="w-4 h-4" />
                             </Button>
+                            <Dialog open={!!viewingPasswordFor && viewingPasswordFor.id === employee.id} onOpenChange={(open) => !open && closeViewPassword()}>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" onClick={() => openViewPassword(employee)} title="View Password">
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Employee Password</DialogTitle>
+                                </DialogHeader>
+                                {passwordLoading && <p className="text-sm">Loading...</p>}
+                                {!passwordLoading && passwordError && (
+                                  <p className="text-sm text-red-600">{passwordError}</p>
+                                )}
+                                {!passwordLoading && passwordPlain && (
+                                  <div className="space-y-2">
+                                    <p className="font-mono break-all p-2 rounded bg-muted border">{passwordPlain}</p>
+                                    <Button variant="outline" size="sm" onClick={() => passwordPlain && navigator.clipboard.writeText(passwordPlain)}>
+                                      <Clipboard className="w-4 h-4 mr-2" />Copy
+                                    </Button>
+                                  </div>
+                                )}
+                                <div className="pt-2 text-xs text-muted-foreground space-y-1">
+                                  <p>Handle with care. Revealed password is sensitive.</p>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
