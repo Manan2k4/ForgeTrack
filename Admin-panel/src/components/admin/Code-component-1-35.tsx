@@ -337,6 +337,21 @@ export function AddProduct() {
                 <Input
                   value={editingSizesRaw}
                   onChange={(e) => setEditingSizesRaw(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Fallback: if comma key is pressed but component would block it, manually append
+                    if (e.key === ',') {
+                      // Allow native insertion if it works; small timeout to detect disappearance
+                      const before = editingSizesRaw;
+                      setTimeout(() => {
+                        // If value unchanged (comma blocked), append manually
+                        if (editingSizesRaw === before) {
+                          setEditingSizesRaw(prev => prev + (prev.endsWith(' ') || prev === '' ? ',' : ', '));
+                        }
+                      }, 10);
+                    }
+                  }}
+                  inputMode="text"
+                  autoComplete="off"
                   placeholder="Enter sizes separated by commas"
                 />
                 <p className="text-xs text-muted-foreground">Add a comma then type next size; trailing comma now preserved while editing.</p>
