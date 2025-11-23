@@ -35,6 +35,8 @@ export function AddProduct() {
   });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  // Raw sizes string for edit dialog to preserve user input (including trailing commas) until save
+  const [editingSizesRaw, setEditingSizesRaw] = useState('');
 
   useEffect(() => {
     loadProducts();
@@ -100,17 +102,20 @@ export function AddProduct() {
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setIsEditDialogOpen(true);
+    setEditingSizesRaw(product.sizes.join(', '));
   };
 
   const handleSaveEdit = async () => {
     if (!editingProduct) return;
     try {
+      const sizesArray = editingSizesRaw.split(',').map(s => s.trim()).filter(Boolean);
       await apiService.updateProduct(editingProduct.id, {
-        sizes: editingProduct.sizes,
+        sizes: sizesArray,
         ...(editingProduct.type === 'sleeve' ? { code: editingProduct.code } : { partName: editingProduct.partName })
       });
       setEditingProduct(null);
       setIsEditDialogOpen(false);
+      setEditingSizesRaw('');
       await loadProducts();
       toast.success('Product updated successfully');
     } catch (error: any) {
@@ -339,7 +344,16 @@ export function AddProduct() {
       </div>
 
       {/* Edit Product Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) {
+            setEditingProduct(null);
+            setEditingSizesRaw('');
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Product</DialogTitle>
@@ -371,13 +385,12 @@ export function AddProduct() {
               <div className="space-y-2">
                 <Label>Sizes</Label>
                 <Input
-                  value={editingProduct.sizes.join(', ')}
-                  onChange={(e) => {
-                    const sizes = e.target.value.split(',').map(s => s.trim()).filter(s => s);
-                    setEditingProduct({ ...editingProduct, sizes });
-                  }}
+                  value={editingSizesRaw}
+                  onChange={(e) => setEditingSizesRaw(e.target.value)}
                   placeholder="Enter sizes separated by commas"
+                  autoComplete="off"
                 />
+                <p className="text-xs text-muted-foreground">Trailing commas are preserved; parsing happens only on save.</p>
               </div>
             </div>
           )}
