@@ -71,57 +71,65 @@ export function AddJobType() {
     } catch (e: any) { toast.error(e?.message || 'Failed to delete job type'); }
   };
 
-  const renderTable = () => (
-    <Card>
-      <CardHeader><CardTitle>Existing Job Types</CardTitle><CardDescription>Manage operation job types</CardDescription></CardHeader>
-      <CardContent>
-        {loading && <p className="text-sm text-muted-foreground">Loading...</p>}
-        {!loading && jobTypes.length === 0 && <p className="text-sm text-muted-foreground">No job types yet.</p>}
-        {jobTypes.length > 0 && (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Part Type</TableHead>
-                  <TableHead>Job Name</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="w-[120px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {jobTypes.map(j => (
-                  <TableRow key={j.id}>
-                    <TableCell>{PART_TYPES.find(t => t.value === j.partType)?.label || j.partType}</TableCell>
-                    <TableCell>{j.jobName}</TableCell>
-                    <TableCell>{new Date(j.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(j)}><Edit className="w-4 h-4" /></Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm"><Trash2 className="w-4 h-4" /></Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Job Type</AlertDialogTitle>
-                              <AlertDialogDescription>Are you sure? This action cannot be undone.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteJobType(j.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+  const renderGroupedTables = () => (
+    <div className="grid gap-6 lg:grid-cols-3">
+      {PART_TYPES.map(type => {
+        const group = jobTypes.filter(j => j.partType === type.value);
+        return (
+          <Card key={type.value}>
+            <CardHeader>
+              <CardTitle>{type.label} Job Types</CardTitle>
+              <CardDescription>Manage {type.label.toLowerCase()} job types</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading && <p className="text-sm text-muted-foreground">Loading...</p>}
+              {!loading && group.length === 0 && <p className="text-sm text-muted-foreground">No job types added yet.</p>}
+              {group.length > 0 && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Job Name</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead className="w-[100px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.map(j => (
+                        <TableRow key={j.id}>
+                          <TableCell>{j.jobName}</TableCell>
+                          <TableCell>{new Date(j.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" onClick={() => openEdit(j)}><Edit className="w-4 h-4" /></Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="sm"><Trash2 className="w-4 h-4" /></Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Job Type</AlertDialogTitle>
+                                    <AlertDialogDescription>Are you sure? This action cannot be undone.</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteJobType(j.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
   );
 
   return (
@@ -147,7 +155,7 @@ export function AddJobType() {
           </form>
         </CardContent>
       </Card>
-      {renderTable()}
+      {renderGroupedTables()}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Edit Job Type</DialogTitle><DialogDescription>Update job type details</DialogDescription></DialogHeader>

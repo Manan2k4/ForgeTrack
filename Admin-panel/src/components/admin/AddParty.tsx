@@ -71,58 +71,68 @@ export function AddParty() {
     } catch (e: any) { toast.error(e?.message || 'Failed to delete party'); }
   };
 
-  const renderTable = () => (
-    <Card>
-      <CardHeader><CardTitle>Existing Parties</CardTitle><CardDescription>Manage parties for transporter logs</CardDescription></CardHeader>
-      <CardContent>
-        {loading && <p className="text-sm text-muted-foreground">Loading...</p>}
-        {!loading && parties.length === 0 && <p className="text-sm text-muted-foreground">No parties yet.</p>}
-        {parties.length > 0 && (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Party Type</TableHead>
-                  <TableHead>Party Name</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="w-[120px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {parties.map(p => (
-                  <TableRow key={p.id}>
-                    <TableCell>{PARTY_TYPES.find(t => t.value === p.partyType)?.label || p.partyType}</TableCell>
-                    <TableCell>{p.partyName}</TableCell>
-                    <TableCell>{new Date(p.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(p)}><Edit className="w-4 h-4" /></Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm"><Trash2 className="w-4 h-4" /></Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Party</AlertDialogTitle>
-                              <AlertDialogDescription>Are you sure? This action cannot be undone.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteParty(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+  const renderGroupedTables = () => {
+    return (
+      <div className="grid gap-6 lg:grid-cols-3">
+        {PARTY_TYPES.map(type => {
+          const group = parties.filter(p => p.partyType === type.value);
+          return (
+            <Card key={type.value}>
+              <CardHeader>
+                <CardTitle>{type.label} Parties</CardTitle>
+                <CardDescription>Manage {type.label.toLowerCase()} parties</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading && <p className="text-sm text-muted-foreground">Loading...</p>}
+                {!loading && group.length === 0 && <p className="text-sm text-muted-foreground">No parties added yet.</p>}
+                {group.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Party Name</TableHead>
+                          <TableHead>Created</TableHead>
+                          <TableHead className="w-[100px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {group.map(p => (
+                          <TableRow key={p.id}>
+                            <TableCell>{p.partyName}</TableCell>
+                            <TableCell>{new Date(p.createdAt).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => openEdit(p)}><Edit className="w-4 h-4" /></Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="outline" size="sm"><Trash2 className="w-4 h-4" /></Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Party</AlertDialogTitle>
+                                      <AlertDialogDescription>Are you sure? This action cannot be undone.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteParty(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -149,7 +159,7 @@ export function AddParty() {
           </form>
         </CardContent>
       </Card>
-      {renderTable()}
+      {renderGroupedTables()}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Edit Party</DialogTitle><DialogDescription>Update party details</DialogDescription></DialogHeader>
