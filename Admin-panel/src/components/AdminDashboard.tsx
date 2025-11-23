@@ -10,6 +10,7 @@ import { ViewLogs } from './admin/ViewLogs';
 import { TransporterLogs } from './admin/TransporterLogs';
 import { LogOut, Users, UserPlus, Package, Activity, Menu, Truck, BarChart2, Building2, Wrench } from 'lucide-react';
 import Analytics from './admin/Analytics';
+import ErrorBoundary from './ErrorBoundary';
 
 interface User {
   id: string;
@@ -158,7 +159,9 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
           </Button>
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          {renderActiveComponent()}
+          <ErrorBoundary resetKeys={[activeTab]}>
+            {renderActiveComponent()}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

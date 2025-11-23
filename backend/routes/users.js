@@ -51,6 +51,13 @@ router.get('/employees/:id/password', adminAuth, async (req, res) => {
     if (!plain) {
       return res.status(400).json({ success: false, message: 'Password not available (encryption key missing or reset required)' });
     }
+    // Basic audit log (console). Consider persisting in collection later.
+    console.log('[AUDIT] Admin password view', {
+      at: new Date().toISOString(),
+      adminId: req.user && req.user.id,
+      employeeId: employee._id.toString(),
+      employeeUsername: employee.username,
+    });
     return res.json({ success: true, data: { employeeId: employee._id, password: plain } });
   } catch (error) {
     console.error('View password error:', error);

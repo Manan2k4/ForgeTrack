@@ -1,15 +1,22 @@
 [build]
   command = "npm run build"
-  publish = "build"
+  publish = "dist"  # Vite default output
 
 [build.environment]
   NODE_VERSION = "20"
+  # Expose backend API URL to Vite at build time (set this in Netlify UI ideally)
+  # VITE_API_URL = "https://your-backend.example.com/api"
 
-[[redirects]]
-  from = "/api/*"
-  to = "/api/:splat"
-  status = 200
+# Security headers (adjust if conflicting with backend proxy behavior)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-XSS-Protection = "1; mode=block"
 
+# SPA fallback for client-side routing
 [[redirects]]
   from = "/*"
   to = "/index.html"
