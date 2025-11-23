@@ -274,38 +274,12 @@ export function ManageEmployees() {
                         {new Date(employee.createdAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="space-x-2">
+                        {/* Edit dialog */}
                         <Dialog open={!!editing && editing?.id === employee.id} onOpenChange={(open) => !open && setEditing(null)}>
                           <DialogTrigger asChild>
                             <Button variant="outline" size="sm" onClick={() => openEdit(employee)}>
                               <Pencil className="w-4 h-4" />
                             </Button>
-                            <Dialog open={!!viewingPasswordFor && viewingPasswordFor.id === employee.id} onOpenChange={(open) => !open && closeViewPassword()}>
-                              <DialogTrigger asChild>
-                                <Button variant="outline" size="sm" onClick={() => openViewPassword(employee)} title="View Password">
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Employee Password</DialogTitle>
-                                </DialogHeader>
-                                {passwordLoading && <p className="text-sm">Loading...</p>}
-                                {!passwordLoading && passwordError && (
-                                  <p className="text-sm text-red-600">{passwordError}</p>
-                                )}
-                                {!passwordLoading && passwordPlain && (
-                                  <div className="space-y-2">
-                                    <p className="font-mono break-all p-2 rounded bg-muted border">{passwordPlain}</p>
-                                    <Button variant="outline" size="sm" onClick={() => passwordPlain && navigator.clipboard.writeText(passwordPlain)}>
-                                      <Clipboard className="w-4 h-4 mr-2" />Copy
-                                    </Button>
-                                  </div>
-                                )}
-                                <div className="pt-2 text-xs text-muted-foreground space-y-1">
-                                  <p>Handle with care. Revealed password is sensitive.</p>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
@@ -351,6 +325,35 @@ export function ManageEmployees() {
                                 <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
                                 <Button onClick={submitEdit}>Save</Button>
                               </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+
+                        {/* View password dialog (separate) */}
+                        <Dialog open={!!viewingPasswordFor && viewingPasswordFor.id === employee.id} onOpenChange={(open) => !open && closeViewPassword()}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" onClick={() => openViewPassword(employee)} title="View Password">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Employee Password</DialogTitle>
+                            </DialogHeader>
+                            {passwordLoading && <p className="text-sm">Loading...</p>}
+                            {!passwordLoading && passwordError && (
+                              <p className="text-sm text-red-600">{passwordError}</p>
+                            )}
+                            {!passwordLoading && passwordPlain && (
+                              <div className="space-y-2">
+                                <p className="font-mono break-all p-2 rounded bg-muted border">{passwordPlain}</p>
+                                <Button variant="outline" size="sm" onClick={() => passwordPlain && navigator.clipboard.writeText(passwordPlain)}>
+                                  <Clipboard className="w-4 h-4 mr-2" />Copy
+                                </Button>
+                              </div>
+                            )}
+                            <div className="pt-2 text-xs text-muted-foreground space-y-1">
+                              <p>Handle with care. Revealed password is sensitive.</p>
                             </div>
                           </DialogContent>
                         </Dialog>
