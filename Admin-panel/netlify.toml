@@ -1,11 +1,11 @@
 [build]
   command = "npm run build"
-  publish = "dist"  # Vite default output
+  publish = "build"  # Matches Vite outDir in vite.config.ts
 
 [build.environment]
   NODE_VERSION = "20"
-  # Expose backend API URL to Vite at build time (set this in Netlify UI ideally)
-  # VITE_API_URL = "https://your-backend.example.com/api"
+  # Expose backend API URL to Vite at build time
+  VITE_API_URL = "https://forgetrack-backend-wk3o.onrender.com/api"
 
 # Security headers (adjust if conflicting with backend proxy behavior)
 [[headers]]
