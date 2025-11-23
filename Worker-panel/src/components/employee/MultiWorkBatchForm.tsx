@@ -250,15 +250,18 @@ export function MultiWorkBatchForm({ jobType, employeeId, onComplete, isOnline }
                   )}
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {operationOptions.length > 0 && (
-                    <div className="space-y-1">
-                      <Label className="text-sm font-medium">Job Type (operation)</Label>
-                      <Select value={entry.operation} onValueChange={v => updateEntry(entry.id, { operation: v })}>
-                        <SelectTrigger className="h-10"><SelectValue placeholder="Select operation" /></SelectTrigger>
-                        <SelectContent>{operationOptions.map(op => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                  <div className="space-y-1">
+                    <Label className="text-sm font-medium">Job Type (operation)</Label>
+                    <Select value={entry.operation} onValueChange={v => updateEntry(entry.id, { operation: v })}>
+                      <SelectTrigger className="h-10"><SelectValue placeholder={operationOptions.length ? 'Select operation' : 'No job types yet'} /></SelectTrigger>
+                      <SelectContent>
+                        {operationOptions.length === 0 && (
+                          <SelectItem disabled value="__none">No job types defined</SelectItem>
+                        )}
+                        {operationOptions.map(op => <SelectItem key={op} value={op}>{op}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-1">
                     <Label className="text-sm font-medium">{getItemLabel()} *</Label>
                     <Select value={entry.selectedItem} onValueChange={v => updateEntry(entry.id, { selectedItem: v, partSize: '', specialSize: '' })}>

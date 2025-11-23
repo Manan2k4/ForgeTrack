@@ -207,13 +207,13 @@ class DatabaseService {
         const response = await fetch(url, { headers });
         if (response.ok) {
           const json = await response.json();
-            const jobTypes: JobType[] = (json.data || []).map((jt: any) => ({
-              id: jt.id || jt._id || Date.now().toString(),
-              name: jt.name,
-              partType: jt.partType,
-            }));
-            this.cacheJobTypes(jobTypes);
-            return partType ? jobTypes.filter(j => j.partType === partType) : jobTypes;
+          const jobTypes: JobType[] = (json.data || []).map((jt: any) => ({
+            id: jt.id || jt._id || Date.now().toString(),
+            name: jt.name || jt.jobName, // support both field names
+            partType: jt.partType,
+          })).filter(j => !!j.name && !!j.partType);
+          this.cacheJobTypes(jobTypes);
+          return partType ? jobTypes.filter(j => j.partType === partType) : jobTypes;
         }
       } catch (e) {
         console.log('Network request failed, using cached job types');

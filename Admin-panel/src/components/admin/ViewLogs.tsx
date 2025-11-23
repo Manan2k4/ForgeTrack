@@ -48,9 +48,11 @@ export function ViewLogs() {
       const list = (resp.data || []) as any[];
       const map: Record<string, string[]> = {};
       list.forEach(jt => {
-        if (!jt.partType) return;
-        if (!map[jt.partType]) map[jt.partType] = [];
-        map[jt.partType].push(jt.name);
+        const partType = jt.partType;
+        const name = jt.name || jt.jobName; // support both keys
+        if (!partType || !name) return;
+        if (!map[partType]) map[partType] = [];
+        map[partType].push(name);
       });
       setOperationOptionsMap(map);
       // Cache for offline usage
