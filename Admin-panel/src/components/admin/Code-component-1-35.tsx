@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { toast } from 'sonner@2.0.3';
+// Fixed incorrect import specifier; use package name only
+import { toast } from 'sonner';
 import { Package, Edit, Trash2, Plus } from 'lucide-react';
 
 interface Product {
@@ -29,6 +30,8 @@ export function AddProduct() {
   });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  // Raw text for editing sizes to allow user to type commas (including trailing) before parsing on save
+  const [editingSizesRaw, setEditingSizesRaw] = useState('');
 
   useEffect(() => {
     loadProducts();
@@ -101,14 +104,22 @@ export function AddProduct() {
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setIsEditDialogOpen(true);
+    setEditingSizesRaw(product.sizes.join(', '));
   };
 
   const handleSaveEdit = () => {
     if (!editingProduct) return;
 
+    // Parse raw sizes only on save to avoid stripping trailing comma while typing
+    const parsedSizes = editingSizesRaw
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s);
+    const productToSave: Product = { ...editingProduct, sizes: parsedSizes };
+
     const products = JSON.parse(localStorage.getItem('products') || '[]');
     const updatedProducts = products.map((p: Product) => 
-      p.id === editingProduct.id ? editingProduct : p
+      p.id === productToSave.id ? productToSave : p
     );
     localStorage.setItem('products', JSON.stringify(updatedProducts));
     
@@ -324,13 +335,11 @@ export function AddProduct() {
               <div className="space-y-2">
                 <Label>Sizes</Label>
                 <Input
-                  value={editingProduct.sizes.join(', ')}
-                  onChange={(e) => {
-                    const sizes = e.target.value.split(',').map(s => s.trim()).filter(s => s);
-                    setEditingProduct({...editingProduct, sizes});
-                  }}
+                  value={editingSizesRaw}
+                  onChange={(e) => setEditingSizesRaw(e.target.value)}
                   placeholder="Enter sizes separated by commas"
                 />
+                <p className="text-xs text-muted-foreground">Add a comma then type next size; trailing comma now preserved while editing.</p>
               </div>
             </div>
           )}
