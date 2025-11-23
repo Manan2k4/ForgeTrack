@@ -123,7 +123,7 @@ export function ManageEmployees() {
     setPasswordError(null);
     setPasswordLoading(true);
     try {
-      const resp: any = await (apiService as any).viewEmployeePassword(emp.id);
+      const resp = await apiService.viewEmployeePassword(emp.id);
       if (resp?.success && resp?.data?.password) {
         setPasswordPlain(resp.data.password);
       } else {

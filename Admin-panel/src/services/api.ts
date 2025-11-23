@@ -92,10 +92,9 @@ class ApiService {
     });
   }
   
-    async viewEmployeePassword(employeeId: string) {
-      const res = await this.request<any>(`/users/employees/${employeeId}/password`);
-      return res.data;
-    }
+  async viewEmployeePassword(employeeId: string) {
+    return this.request<{ employeeId: string; password: string }>(`/users/employees/${employeeId}/password`);
+  }
 
   async deleteEmployee(employeeId: string) {
     return this.request<any>(`/users/employees/${employeeId}`, {
