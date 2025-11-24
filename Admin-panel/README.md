@@ -59,5 +59,21 @@
   ## Audit Logging
   
   Each admin password view request is logged to the server console with a `[AUDIT]` prefix. For production, persist these events to a secure collection or external log store (e.g. Azure Monitor, CloudWatch) and monitor for unusual access patterns.
+
+  ## PWA / Home Screen Icon
+
+  To enable installation as a web app and show your custom icon:
+  1. Place `prince_logo.png` inside `Admin-panel/public/` (the build only includes files under this folder). Recommended sizes: 192x192 and 512x512 square PNG. If your logo is not square, center it on a square canvas with transparent or brand-color background.
+  2. Current setup: `public/manifest.json` references `/prince_logo.png` for both 192 and 512 sizes. Replace with properly resized files if needed.
+  3. The `<link rel="manifest" href="/manifest.json" />` and icon tags were added to `index.html`.
+  4. A basic service worker `public/sw.js` is registered in `src/main.tsx` for offline shell caching.
+  5. After deployment, visit the site on mobile Chrome → Menu → "Add to Home screen". The icon should appear as your logo.
+
+  Optional improvements:
+  - Add a maskable icon variant (`purpose": "maskable"`) with safe padding.
+  - Precache more static assets in `sw.js`.
+  - Use Workbox for advanced strategies.
+  - Provide separate dark/light theme colors in manifest.
+
   
   
