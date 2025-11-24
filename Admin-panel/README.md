@@ -62,18 +62,31 @@
 
   ## PWA / Home Screen Icon
 
-  To enable installation as a web app and show your custom icon:
-  1. Place `prince_logo.png` inside `Admin-panel/public/` (the build only includes files under this folder). Recommended sizes: 192x192 and 512x512 square PNG. If your logo is not square, center it on a square canvas with transparent or brand-color background.
-  2. Current setup: `public/manifest.json` references `/prince_logo.png` for both 192 and 512 sizes. Replace with properly resized files if needed.
-  3. The `<link rel="manifest" href="/manifest.json" />` and icon tags were added to `index.html`.
-  4. A basic service worker `public/sw.js` is registered in `src/main.tsx` for offline shell caching.
-  5. After deployment, visit the site on mobile Chrome → Menu → "Add to Home screen". The icon should appear as your logo.
+    To enable installation as a web app and show your custom icon:
+    1. Create a folder `Admin-panel/public/icons/`.
+    2. Generate square PNGs (transparent or solid brand background) at sizes:
+      72, 96, 128, 144, 152, 192, 256, 384, 512.
+      Name them exactly: `prince-72.png`, `prince-96.png`, etc.
+    3. The manifest now references all these sizes for better device compatibility.
+    4. Optional: create a maskable icon variant with extra safe padding (leave 12-15% margin) and assign `purpose: "maskable"`.
+    5. Service worker avoids precaching icons so updates appear immediately after a reload.
+    6. After deployment, Chrome (Android): open site → overflow menu → Add to Home screen. If the icon shows a blank letter, clear site data (Settings → Site settings → Storage) and retry.
 
   Optional improvements:
-  - Add a maskable icon variant (`purpose": "maskable"`) with safe padding.
-  - Precache more static assets in `sw.js`.
+  - Add dedicated maskable and monochrome icons for newer Android launchers.
+  - Precache more static assets in `sw.js` (but keep icons out to avoid staleness).
   - Use Workbox for advanced strategies.
   - Provide separate dark/light theme colors in manifest.
+  
+  ### CLI Icon Generation
+  A script `scripts/generate-icons.js` now creates all required sizes from the root `prince_logo.png`:
+  1. Ensure `prince_logo.png` exists at repository root (`SGP-3/prince_logo.png`).
+  2. Install dependencies (sharp): `npm install` (inside `Admin-panel`).
+  3. Run: `npm run icons`
+  4. Script outputs icons into `public/icons/` and rewrites `public/manifest.json` icons array.
+  5. Commit & redeploy; remove old home-screen shortcut and re-add.
+  
+  If the source image is not square, the script pads it with brand background color (#0b3d91). Maskable icon is generated with safe padding. Replace background or adjust padding by editing the script.
 
   
   

@@ -2,9 +2,8 @@
 const CACHE_NAME = 'forge-admin-v1';
 const CORE_ASSETS = [
   '/',
-  '/index.html',
-  '/manifest.json',
-  '/prince_logo.png'
+  '/index.html'
+  // We intentionally do NOT precache manifest or icons to avoid stale icon issues after updates.
 ];
 
 self.addEventListener('install', (event) => {
