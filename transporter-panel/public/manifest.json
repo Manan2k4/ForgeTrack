@@ -1,63 +1,61 @@
 {
-  "name": "Admin - Prince Engg",
-  "short_name": "Admin - Prince Engg",
-  "description": "Administration panel for Prince Engineering",
-  "id": "/",
-  "start_url": "/",
-  "scope": "/",
+  "name": "Transporter - Prince Engg.",
+  "short_name": "Transporter",
+  "description": "Transporter Panel for Prince Engineering Works",
+  "start_url": ".",
   "display": "standalone",
-  "background_color": "#0b3d91",
-  "theme_color": "#0b3d91",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icons/prince-72.png",
+      "src": "/icons/icon-72.png",
       "sizes": "72x72",
       "type": "image/png"
     },
     {
-      "src": "/icons/prince-96.png",
+      "src": "/icons/icon-96.png",
       "sizes": "96x96",
       "type": "image/png"
     },
     {
-      "src": "/icons/prince-128.png",
+      "src": "/icons/icon-128.png",
       "sizes": "128x128",
       "type": "image/png"
     },
     {
-      "src": "/icons/prince-144.png",
+      "src": "/icons/icon-144.png",
       "sizes": "144x144",
       "type": "image/png"
     },
     {
-      "src": "/icons/prince-152.png",
+      "src": "/icons/icon-152.png",
       "sizes": "152x152",
       "type": "image/png"
     },
     {
-      "src": "/icons/prince-192.png",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icons/prince-256.png",
+      "src": "/icons/icon-256.png",
       "sizes": "256x256",
       "type": "image/png"
     },
     {
-      "src": "/icons/prince-384.png",
+      "src": "/icons/icon-384.png",
       "sizes": "384x384",
       "type": "image/png"
     },
     {
-      "src": "/icons/prince-512.png",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     },
     {
-      "src": "/icons/prince-512-maskable.png",
-      "sizes": "512x512",
+      "src": "/icons/maskable-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     }
