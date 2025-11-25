@@ -18,6 +18,7 @@ function formatTransporterLog(doc) {
     partName: doc.partName || null,
     totalParts: doc.totalParts,
     rejection: doc.rejection || 0,
+    weight: doc.weight || 0,
     date: doc.workDate,
     timestamp: doc.createdAt,
   };
@@ -91,6 +92,7 @@ router.get('/', auth, async (req, res) => {
       partName: l.partName || null,
       totalParts: l.totalParts,
       rejection: l.rejection || 0,
+      weight: l.weight || 0,
       date: l.workDate,
       timestamp: l.createdAt,
     }));
@@ -105,7 +107,11 @@ router.get('/', auth, async (req, res) => {
 // Create transporter log
 router.post('/', auth, async (req, res) => {
   try {
-    const { jobType, partyName, totalParts, rejection = 0, partName } = req.body;
+    const { jobType, partyName, totalParts, rejection = 0, partName, weight = 0 } = req.body;
+    console.log('=== TRANSPORTER LOG POST REQUEST ===');
+    console.log('Request body:', req.body);
+    console.log('User:', req.user?.name, 'Department:', req.user?.department, 'Role:', req.user?.role);
+    console.log('====================================');
 
     if (!jobType || !['outside-rod', 'outside-pin', 'outside-sleeve'].includes(jobType)) {
       return res.status(400).json({ success: false, message: 'Invalid job type' });
@@ -115,6 +121,7 @@ router.post('/', auth, async (req, res) => {
     if (typeof totalParts !== 'number' || totalParts < 1) return res.status(400).json({ success: false, message: 'Total parts must be at least 1' });
     if (rejection < 0) return res.status(400).json({ success: false, message: 'Rejection cannot be negative' });
     if (rejection > totalParts) return res.status(400).json({ success: false, message: 'Rejection cannot exceed total parts' });
+    if (weight < 0) return res.status(400).json({ success: false, message: 'Weight cannot be negative' });
 
     // Only Transporter employees are allowed to create transporter logs
     if (!(req.user?.role === 'employee' && req.user?.department === 'Transporter')) {
@@ -128,9 +135,21 @@ router.post('/', auth, async (req, res) => {
     try {
       const Product = require('../models/Product');
       const expectType = jobType === 'outside-rod' ? 'rod' : (jobType === 'outside-pin' ? 'pin' : 'sleeve');
-      const productExists = await Product.findOne({ partName, type: expectType }).lean();
+      console.log(`Validating product: partName="${partName}", expectType="${expectType}"`);
+      
+      let productExists;
+      if (expectType === 'sleeve') {
+        // Sleeve products use 'code' field instead of 'partName'
+        productExists = await Product.findOne({ code: partName, type: expectType }).lean();
+      } else {
+        // Rod and Pin use 'partName' field
+        productExists = await Product.findOne({ partName, type: expectType }).lean();
+      }
+      
+      console.log('Product found:', productExists);
       if (!productExists) {
-        return res.status(400).json({ success: false, message: 'Part name does not match any existing product' });
+        console.log('ERROR: Part name does not match any existing product');
+        return res.status(400).json({ success: false, message: `Part name does not match any existing ${expectType} product` });
       }
     } catch (e) {
       console.warn('Product validation failed/skipped:', e?.message);
@@ -143,6 +162,7 @@ router.post('/', auth, async (req, res) => {
       partName,
       totalParts,
       rejection,
+      weight,
       workDate,
       employeeName: req.user.name,
       employeeDepartment: req.user.department,
@@ -193,7 +213,7 @@ module.exports = router;
 router.patch('/:id', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { totalParts, rejection, partyName, jobType, partName } = req.body || {};
+    const { totalParts, rejection, partyName, jobType, partName, weight } = req.body || {};
 
     const log = await TransporterLog.findById(id);
     if (!log) return res.status(404).json({ success: false, message: 'Transporter log not found' });
@@ -215,7 +235,16 @@ router.patch('/:id', adminAuth, async (req, res) => {
       try {
         const Product = require('../models/Product');
         const expectType = (log.jobType === 'outside-rod') ? 'rod' : (log.jobType === 'outside-pin' ? 'pin' : 'sleeve');
-        const productExists = await Product.findOne({ partName, type: expectType }).lean();
+        
+        let productExists;
+        if (expectType === 'sleeve') {
+          // Sleeve products use 'code' field instead of 'partName'
+          productExists = await Product.findOne({ code: partName, type: expectType }).lean();
+        } else {
+          // Rod and Pin use 'partName' field
+          productExists = await Product.findOne({ partName, type: expectType }).lean();
+        }
+        
         if (!productExists) return res.status(400).json({ success: false, message: 'Part name not found for current job type' });
       } catch (e) {
         console.warn('Product validation failed during patch:', e?.message);
@@ -239,6 +268,13 @@ router.patch('/:id', adminAuth, async (req, res) => {
         return res.status(400).json({ success: false, message: 'Rejection cannot exceed total parts' });
       }
       log.rejection = rejection;
+    }
+
+    if (typeof weight !== 'undefined') {
+      if (typeof weight !== 'number' || weight < 0) {
+        return res.status(400).json({ success: false, message: 'Weight cannot be negative' });
+      }
+      log.weight = weight;
     }
 
     await log.save();

@@ -50,6 +50,7 @@ export function TransporterLogs() {
     transporterEsRef.current = es;
 
     const applyRealtime = (eventType: string, payload: any) => {
+      console.log('TransporterLogs SSE event:', eventType, payload);
       setLogs(prev => {
         if (eventType === 'created' && payload) {
           if (prev.some(l => (l.id || l._id) === payload.id)) return prev; // dedupe
@@ -95,12 +96,7 @@ export function TransporterLogs() {
     try {
       const resp = await apiService.getEmployees({ includeInactive: true });
       const list = Array.isArray(resp?.data) ? resp.data : [];
-      console.log('All employees:', list);
-      const transporterEmployees = list.filter((e: any) => {
-        console.log(`Employee: ${e.name}, Department: ${e.department}`);
-        return e.department === 'Transporter';
-      });
-      console.log('Filtered transporter employees:', transporterEmployees);
+      const transporterEmployees = list.filter((e: any) => e.department === 'Transporter');
       const opts = transporterEmployees.map((e: any) => ({ id: e.id || e._id, name: e.name }));
       setEmployees(opts);
     } catch (err: any) {
@@ -112,10 +108,6 @@ export function TransporterLogs() {
     try {
       const resp = await apiService.getParties();
       const list = Array.isArray(resp?.data) ? resp.data : [];
-      console.log('All parties loaded:', list);
-      list.forEach((p: any) => {
-        console.log(`Party: ${p.partyName}, Type: ${p.partyType}`);
-      });
       setParties(list); // Store full party objects with partyType and partyName
     } catch (err: any) {
       toast.error(err?.message || 'Failed to load parties');
@@ -179,17 +171,10 @@ export function TransporterLogs() {
   }, [filters.jobType]);
 
   const uniqueParties = useMemo(() => {
-    console.log('uniqueParties calculation - filters.jobType:', filters.jobType);
-    console.log('uniqueParties calculation - all parties:', parties);
-    
     // Filter parties by selected job type (smart filtering)
     let filteredParties = parties;
     if (filters.jobType !== 'all') {
-      filteredParties = parties.filter((p: any) => {
-        console.log(`Comparing party ${p.partyName}: partyType="${p.partyType}" vs jobType="${filters.jobType}"`);
-        return p.partyType === filters.jobType;
-      });
-      console.log('Filtered parties after job type match:', filteredParties);
+      filteredParties = parties.filter((p: any) => p.partyType === filters.jobType);
     }
     
     // Combine filtered parties with any custom parties from logs (also filter by job type)
@@ -199,9 +184,7 @@ export function TransporterLogs() {
         set.add(l.partyName);
       }
     });
-    const result = Array.from(set).sort();
-    console.log('Final unique parties:', result);
-    return result;
+    return Array.from(set).sort();
   }, [logs, parties, filters.jobType]);
 
   return (
@@ -305,6 +288,7 @@ export function TransporterLogs() {
                   <TableHead>Total Parts</TableHead>
                   <TableHead>Rejection</TableHead>
                   <TableHead>Ok Parts</TableHead>
+                  <TableHead>Weight/Piece (Kg)</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -323,6 +307,13 @@ export function TransporterLogs() {
                     <TableCell>{Number(log?.totalParts ?? log?.quantity ?? 0)}</TableCell>
                     <TableCell>{Number(log?.rejection ?? 0)}</TableCell>
                     <TableCell>{Math.max(0, Number(log?.totalParts ?? log?.quantity ?? 0) - Number(log?.rejection ?? 0))}</TableCell>
+                    <TableCell>
+                      {(() => {
+                        const okParts = Math.max(0, Number(log?.totalParts ?? log?.quantity ?? 0) - Number(log?.rejection ?? 0));
+                        const weight = Number(log?.weight ?? 0);
+                        return okParts > 0 && weight > 0 ? (weight / okParts).toFixed(4) : '—';
+                      })()}
+                    </TableCell>
                     <TableCell className="space-x-2">
                       <Button size="sm" variant="outline" onClick={() => setEditing({ open: true, log, saving: false })}>Edit</Button>&nbsp;
                       <Button size="sm" variant="destructive" onClick={() => setDeleting({ id: log.id || log._id, confirming: true })}>Delete</Button>
@@ -393,6 +384,17 @@ export function TransporterLogs() {
                   onChange={(e) => setEditing(prev => ({ ...prev, log: { ...prev.log, rejection: Number(e.target.value) } }))}
                 />
               </div>
+              <div>
+                <label className="text-sm font-medium">Weight (Kgs)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="border rounded-md h-10 px-3 w-full"
+                  defaultValue={Number(editing.log.weight ?? 0)}
+                  min={0}
+                  onChange={(e) => setEditing(prev => ({ ...prev, log: { ...prev.log, weight: Number(e.target.value) } }))}
+                />
+              </div>
             </div>
           )}
           <DialogFooter>
@@ -408,6 +410,7 @@ export function TransporterLogs() {
                     partyName: editing.log.partyName,
                     totalParts: Number(editing.log.totalParts ?? editing.log.quantity ?? 0),
                     rejection: Number(editing.log.rejection ?? 0),
+                    weight: Number(editing.log.weight ?? 0),
                   });
                   toast.success('Transporter log updated');
                   setEditing({ open: false, log: undefined, saving: false });

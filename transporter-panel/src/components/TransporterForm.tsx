@@ -8,7 +8,7 @@ interface Product { partName: string; type: string; }
 
 export function TransporterForm({ employeeId, employeeName, onComplete }: { employeeId: string; employeeName: string; onComplete: () => void; }) {
   const [jobType, setJobType] = useState<TransportJob>('outside-rod');
-  const [formData, setFormData] = useState({ partyName: '', partName: '', totalParts: '', rejection: '' });
+  const [formData, setFormData] = useState({ partyName: '', partName: '', totalParts: '', rejection: '', weight: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [connection, setConnection] = useState(transporterService.getConnectionStatus());
   const [products, setProducts] = useState<Product[]>([]);
@@ -21,7 +21,7 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
     key: `transporterDraft_${employeeId}`,
     data: { jobType, ...formData },
     delay: 1200,
-    shouldSave: (d) => Boolean(d?.partyName || d?.totalParts || d?.rejection),
+    shouldSave: (d) => Boolean(d?.partyName || d?.totalParts || d?.rejection || d?.weight),
   });
 
   useEffect(() => {
@@ -99,8 +99,10 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
     e.preventDefault();
     const total = parseInt(formData.totalParts || '0', 10);
     const rej = parseInt(formData.rejection || '0', 10);
+    const wt = parseFloat(formData.weight || '0');
     if (!formData.partyName || !formData.partName || !total || total < 1) return;
     if (rej < 0 || rej > total) return;
+    if (wt < 0) return;
     setIsSubmitting(true);
     try {
       await transporterService.saveTransportLog({
@@ -111,6 +113,7 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
         partName: formData.partName.trim(),
         totalParts: total,
         rejection: rej || 0,
+        weight: wt || 0,
         date: new Date().toISOString().split('T')[0],
       });
       clearSavedData();
@@ -162,7 +165,7 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
           {!loadingProducts && products.length === 0 && <p className="text-xs text-orange-600 mt-1">No parts available for this type</p>}
         </div>
       </div>
-      <div className="grid md:grid-cols-2 gap-3">
+      <div className="grid md:grid-cols-3 gap-3">
         <div>
           <label className="block text-sm mb-1">Total Parts</label>
           <input className="input" type="number" min={1} value={formData.totalParts} onChange={(e) => setFormData({ ...formData, totalParts: e.target.value })} placeholder="e.g. 200" />
@@ -170,6 +173,10 @@ export function TransporterForm({ employeeId, employeeName, onComplete }: { empl
         <div>
           <label className="block text-sm mb-1">Rejection</label>
           <input className="input" type="number" min={0} value={formData.rejection} onChange={(e) => setFormData({ ...formData, rejection: e.target.value })} placeholder="e.g. 2" />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Weight (Kgs)</label>
+          <input className="input" type="number" step="0.01" min={0} value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: e.target.value })} placeholder="e.g. 25.5" />
         </div>
       </div>
       <div className="flex items-center justify-between">

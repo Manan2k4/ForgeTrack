@@ -11,6 +11,7 @@ interface TransportLog {
   partName: string; // newly added for traceability
   totalParts: number;
   rejection?: number;
+  weight?: number; // Weight in Kgs
   date: string;
   timestamp: string;
   offline?: boolean;
@@ -91,6 +92,7 @@ class TransporterService {
             partName: log.partName,
             totalParts: log.totalParts,
             rejection: log.rejection || 0,
+            weight: log.weight || 0,
           }),
         });
         if (resp.ok) {
@@ -105,6 +107,7 @@ class TransporterService {
             partName: log.partName,
             totalParts: log.totalParts,
             rejection: log.rejection || 0,
+            weight: log.weight || 0,
             date: new Date().toISOString().split('T')[0],
             timestamp: new Date().toISOString(),
           };

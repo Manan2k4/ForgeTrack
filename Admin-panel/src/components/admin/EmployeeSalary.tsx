@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../../services/api';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Download, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -386,50 +387,39 @@ export function EmployeeSalary() {
                       <h3 className="font-semibold text-foreground mb-3">
                         {dayName}, {formattedDate}
                       </h3>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm border-collapse">
-                        <colgroup>
-                          <col style={{ width: '20%' }} />
-                          <col style={{ width: '10%' }} />
-                          <col style={{ width: '10%' }} />
-                          <col style={{ width: '10%' }} />
-                          <col style={{ width: '10%' }} />
-                          <col style={{ width: '8%' }} />
-                          <col style={{ width: '10%' }} />
-                          <col style={{ width: '10%' }} />
-                          <col style={{ width: '12%' }} />
-                        </colgroup>
-                        <thead>
-                          <tr className="border-b-2 border-border">
-                            <th className="text-left py-3 px-3 font-semibold text-muted-foreground">Job</th>
-                            <th className="text-left py-3 px-3 font-semibold text-muted-foreground">Type</th>
-                            <th className="text-left py-3 px-3 font-semibold text-muted-foreground">Code</th>
-                            <th className="text-left py-3 px-3 font-semibold text-muted-foreground">Part</th>
-                            <th className="text-right py-3 px-3 font-semibold text-muted-foreground">Total</th>
-                            <th className="text-right py-3 px-3 font-semibold text-muted-foreground">Rej.</th>
-                            <th className="text-right py-3 px-3 font-semibold text-muted-foreground">OK</th>
-                            <th className="text-right py-3 px-3 font-semibold text-muted-foreground">Rate</th>
-                            <th className="text-right py-3 px-3 font-semibold text-muted-foreground">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {day.logs.map((log, logIdx) => (
-                            <tr key={logIdx} className="border-b border-border last:border-0 hover:bg-muted/30">
-                              <td className="py-3 px-3 text-left text-foreground">{log.jobName}</td>
-                              <td className="py-3 px-3 text-left text-foreground">{log.partType}</td>
-                              <td className="py-3 px-3 text-left text-foreground">{log.code || '-'}</td>
-                              <td className="py-3 px-3 text-left text-foreground">{log.partName || '-'}</td>
-                              <td className="py-3 px-3 text-right text-foreground font-mono">{log.totalParts}</td>
-                              <td className="py-3 px-3 text-right text-foreground font-mono">{log.rejection}</td>
-                              <td className="py-3 px-3 text-right text-foreground font-mono">{log.okParts}</td>
-                              <td className="py-3 px-3 text-right text-foreground font-mono">₹{log.rate.toFixed(2)}</td>
-                              <td className="py-3 px-3 text-right font-semibold text-foreground font-mono">₹{log.amount.toFixed(2)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-border flex justify-end">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Job</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Code</TableHead>
+                              <TableHead>Part</TableHead>
+                              <TableHead>Total</TableHead>
+                              <TableHead>Rej.</TableHead>
+                              <TableHead>OK</TableHead>
+                              <TableHead>Rate</TableHead>
+                              <TableHead>Amount</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {day.logs.map((log, logIdx) => (
+                              <TableRow key={logIdx}>
+                                <TableCell>{log.jobName}</TableCell>
+                                <TableCell>{log.partType}</TableCell>
+                                <TableCell>{log.code || '-'}</TableCell>
+                                <TableCell>{log.partName || '-'}</TableCell>
+                                <TableCell>{log.totalParts}</TableCell>
+                                <TableCell>{log.rejection}</TableCell>
+                                <TableCell>{log.okParts}</TableCell>
+                                <TableCell>Rs. {log.rate.toFixed(2)}</TableCell>
+                                <TableCell className="font-semibold">Rs. {log.amount.toFixed(2)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-border flex justify-end">
                       <span className="text-sm font-semibold text-foreground">
                         Day Total: ₹{day.dayTotal.toFixed(2)}
                       </span>
@@ -442,7 +432,7 @@ export function EmployeeSalary() {
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold text-foreground">Month Total</span>
                     <span className="text-2xl font-bold text-primary">
-                      ₹{salaryData.monthTotal.toFixed(2)}
+                      Rs. {salaryData.monthTotal.toFixed(2)}
                     </span>
                   </div>
                 </div>

@@ -8,6 +8,7 @@ const transporterLogSchema = new mongoose.Schema({
   partName: { type: String, trim: true },
   totalParts: { type: Number, min: [1, 'Total parts must be at least 1'], required: true },
   rejection: { type: Number, min: [0, 'Rejection cannot be negative'], default: 0 },
+  weight: { type: Number, min: [0, 'Weight cannot be negative'], default: 0 }, // Weight in Kgs
   workDate: { type: String, required: true }, // YYYY-MM-DD
   employeeName: { type: String, trim: true },
   employeeDepartment: { type: String, trim: true },
