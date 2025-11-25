@@ -18,9 +18,11 @@ router.get('/', async (req, res) => {
 // Create job type
 router.post('/', adminAuth, async (req, res) => {
   try {
-    let { partType, jobName } = req.body;
+    let { partType, jobName, rate } = req.body;
+    console.log('Creating job type - received:', { partType, jobName, rate });
     if (typeof partType === 'string') partType = partType.trim().toLowerCase();
     if (typeof jobName === 'string') jobName = jobName.trim();
+    console.log('After normalization:', { partType, jobName });
     if (!partType || !jobName) {
       return res.status(400).json({ success: false, message: 'partType and jobName are required' });
     }
@@ -29,10 +31,12 @@ router.post('/', adminAuth, async (req, res) => {
     }
     const existing = await JobType.findOne({ partType, jobName }).collation({ locale: 'en', strength: 2 });
     if (existing) return res.status(400).json({ success: false, message: 'Job type already exists for this part type' });
-    const doc = new JobType({ partType, jobName });
+    const doc = new JobType({ partType, jobName, rate: rate || 0 });
     await doc.save();
+    console.log('Job type created:', doc);
     res.status(201).json({ success: true, message: 'Job type created', data: doc });
   } catch (error) {
+    console.error('Create job type error:', error);
     if (error.code === 11000) return res.status(400).json({ success: false, message: 'Duplicate job type' });
     res.status(500).json({ success: false, message: 'Failed to create job type', error: error.message });
   }
@@ -42,7 +46,7 @@ router.post('/', adminAuth, async (req, res) => {
 router.put('/:id', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    let { partType, jobName } = req.body;
+    let { partType, jobName, rate } = req.body;
     const doc = await JobType.findById(id);
     if (!doc) return res.status(404).json({ success: false, message: 'Job type not found' });
     if (partType) {
@@ -60,6 +64,13 @@ router.put('/:id', adminAuth, async (req, res) => {
         return res.status(400).json({ success: false, message: 'Another job type with this name exists for this part type' });
       }
       doc.jobName = jobName;
+    }
+    if (typeof rate !== 'undefined') {
+      const rateNum = parseFloat(rate);
+      if (isNaN(rateNum) || rateNum < 0) {
+        return res.status(400).json({ success: false, message: 'Invalid rate value' });
+      }
+      doc.rate = rateNum;
     }
     await doc.save();
     res.json({ success: true, message: 'Job type updated', data: doc });

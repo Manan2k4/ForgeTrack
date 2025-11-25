@@ -10,6 +10,7 @@ const workLogRoutes = require('./routes/workLogs');
 const transporterLogRoutes = require('./routes/transporterLogs');
 const partyRoutes = require('./routes/parties');
 const jobTypeRoutes = require('./routes/jobTypes');
+const salaryRoutes = require('./routes/salary');
 const Product = require('./models/Product');
 
 const app = express();
@@ -90,6 +91,7 @@ app.use('/api/work-logs', workLogRoutes);
 app.use('/api/transporter-logs', transporterLogRoutes);
 app.use('/api/parties', partyRoutes);
 app.use('/api/job-types', jobTypeRoutes);
+app.use('/api/salary', salaryRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

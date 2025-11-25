@@ -6,9 +6,11 @@ import { ManageEmployees } from './admin/ManageEmployees';
 import { AddProduct } from './admin/AddProduct';
 import { AddParty } from './admin/AddParty';
 import { AddJobType } from './admin/AddJobType';
+import { AddRate } from './admin/AddRate';
+import { EmployeeSalary } from './admin/EmployeeSalary';
 import { ViewLogs } from './admin/ViewLogs';
 import { TransporterLogs } from './admin/TransporterLogs';
-import { LogOut, Users, UserPlus, Package, Activity, Menu, Truck, BarChart2, Building2, Wrench } from 'lucide-react';
+import { LogOut, Users, UserPlus, Package, Activity, Menu, Truck, BarChart2, Building2, Wrench, DollarSign, Receipt } from 'lucide-react';
 import Analytics from './admin/Analytics';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -25,7 +27,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type ActiveTab = 'add-employee' | 'manage-employees' | 'add-product' | 'add-party' | 'add-job-type' | 'view-logs' | 'transporter-logs' | 'analytics';
+type ActiveTab = 'add-employee' | 'manage-employees' | 'add-product' | 'add-party' | 'add-job-type' | 'add-rate' | 'employee-salary' | 'view-logs' | 'transporter-logs' | 'analytics';
 
 export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
   // Persist the last selected tab; force default to 'view-logs'
@@ -47,6 +49,8 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
     { id: 'add-product' as const, label: 'Add Product', icon: Package }, // inventory
     { id: 'add-party' as const, label: 'Add Party', icon: Building2 }, // external parties/vendors
     { id: 'add-job-type' as const, label: 'Add Job Type', icon: Wrench }, // operations / work definitions
+    { id: 'add-rate' as const, label: 'Add Rate', icon: DollarSign }, // job type rates
+    { id: 'employee-salary' as const, label: 'Employee Salary', icon: Receipt }, // salary reports
     { id: 'view-logs' as const, label: 'View Logs', icon: Activity }, // internal production logs
     { id: 'transporter-logs' as const, label: 'Transporter Logs', icon: Truck }, // transport operations
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart2 }, // charts & stats
@@ -64,6 +68,10 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
         return <AddParty />;
       case 'add-job-type':
         return <AddJobType />;
+      case 'add-rate':
+        return <AddRate />;
+      case 'employee-salary':
+        return <EmployeeSalary />;
       case 'view-logs':
         return <ViewLogs />;
       case 'transporter-logs':

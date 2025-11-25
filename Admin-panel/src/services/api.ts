@@ -341,14 +341,14 @@ class ApiService {
     return this.request<any[]>(`/job-types${query}`);
   }
 
-  async createJobType(data: { partType: string; jobName: string }) {
+  async createJobType(data: { partType: string; jobName: string; rate?: number }) {
     return this.request<any>('/job-types', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateJobType(id: string, data: Partial<{ partType: string; jobName: string }>) {
+  async updateJobType(id: string, data: Partial<{ partType: string; jobName: string; rate: number }>) {
     return this.request<any>(`/job-types/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -359,6 +359,32 @@ class ApiService {
     return this.request<any>(`/job-types/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // Employee Salary endpoints
+  async getEmployeeSalary(employeeId: string, month: number, year: number) {
+    return this.request<{
+      employeeId: string;
+      employeeName: string;
+      month: number;
+      year: number;
+      dailyLogs: Array<{
+        date: string;
+        logs: Array<{
+          jobName: string;
+          partType: string;
+          totalParts: number;
+          rejection: number;
+          okParts: number;
+          rate: number;
+          amount: number;
+          code: string;
+          partName: string;
+        }>;
+        dayTotal: number;
+      }>;
+      monthTotal: number;
+    }>(`/salary/employee/${employeeId}?month=${month}&year=${year}`);
   }
 }
 
