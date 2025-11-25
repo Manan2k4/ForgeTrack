@@ -15,6 +15,7 @@ interface EmployeeOption { id: string; name: string; }
 export function TransporterLogs() {
   const [logs, setLogs] = useState<any[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [parties, setParties] = useState<any[]>([]); // Store full party objects
   const [filters, setFilters] = useState({
     from: '',
     to: '',
@@ -30,6 +31,7 @@ export function TransporterLogs() {
 
   useEffect(() => {
     loadEmployees();
+    loadParties();
     loadData();
   }, []);
 
@@ -91,12 +93,32 @@ export function TransporterLogs() {
 
   const loadEmployees = async () => {
     try {
-  const resp = await apiService.getEmployees({ includeInactive: true });
+      const resp = await apiService.getEmployees({ includeInactive: true });
       const list = Array.isArray(resp?.data) ? resp.data : [];
-      const opts = list.map((e: any) => ({ id: e.id || e._id, name: e.name }));
+      console.log('All employees:', list);
+      const transporterEmployees = list.filter((e: any) => {
+        console.log(`Employee: ${e.name}, Department: ${e.department}`);
+        return e.department === 'Transporter';
+      });
+      console.log('Filtered transporter employees:', transporterEmployees);
+      const opts = transporterEmployees.map((e: any) => ({ id: e.id || e._id, name: e.name }));
       setEmployees(opts);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to load employees');
+    }
+  };
+
+  const loadParties = async () => {
+    try {
+      const resp = await apiService.getParties();
+      const list = Array.isArray(resp?.data) ? resp.data : [];
+      console.log('All parties loaded:', list);
+      list.forEach((p: any) => {
+        console.log(`Party: ${p.partyName}, Type: ${p.partyType}`);
+      });
+      setParties(list); // Store full party objects with partyType and partyName
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to load parties');
     }
   };
 
@@ -151,11 +173,36 @@ export function TransporterLogs() {
     setStats(prev => ({ ...prev, uniquePartiesCount, totalLogs, totalParts, totalRejection }));
   }, [logs]);
 
+  // Reset party filter when job type changes (smart filtering)
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, partyName: 'all' }));
+  }, [filters.jobType]);
+
   const uniqueParties = useMemo(() => {
-    const set = new Set<string>();
-    logs.forEach((l) => { if (l.partyName) set.add(l.partyName); });
-    return Array.from(set);
-  }, [logs]);
+    console.log('uniqueParties calculation - filters.jobType:', filters.jobType);
+    console.log('uniqueParties calculation - all parties:', parties);
+    
+    // Filter parties by selected job type (smart filtering)
+    let filteredParties = parties;
+    if (filters.jobType !== 'all') {
+      filteredParties = parties.filter((p: any) => {
+        console.log(`Comparing party ${p.partyName}: partyType="${p.partyType}" vs jobType="${filters.jobType}"`);
+        return p.partyType === filters.jobType;
+      });
+      console.log('Filtered parties after job type match:', filteredParties);
+    }
+    
+    // Combine filtered parties with any custom parties from logs (also filter by job type)
+    const set = new Set<string>(filteredParties.map((p: any) => p.partyName));
+    logs.forEach((l) => {
+      if (l.partyName && (filters.jobType === 'all' || l.jobType === filters.jobType)) {
+        set.add(l.partyName);
+      }
+    });
+    const result = Array.from(set).sort();
+    console.log('Final unique parties:', result);
+    return result;
+  }, [logs, parties, filters.jobType]);
 
   return (
     <div className="space-y-4">
@@ -196,6 +243,7 @@ export function TransporterLogs() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="outside-sleeve">Outside Sleeve</SelectItem>
                   <SelectItem value="outside-rod">Outside Rod</SelectItem>
                   <SelectItem value="outside-pin">Outside Pin</SelectItem>
                 </SelectContent>
@@ -265,7 +313,11 @@ export function TransporterLogs() {
                   <TableRow key={log?.id || log?._id || idx}>
                     <TableCell>{toDMY(log?.date || log?.workDate || (log?.timestamp ? String(log.timestamp).slice(0, 10) : undefined)) || '—'}</TableCell>
                     <TableCell>{log?.employeeName || log?.employee?.name || '—'}</TableCell>
-                    <TableCell>{log?.jobType === 'outside-rod' ? 'Outside Rod' : 'Outside Pin'}</TableCell>
+                    <TableCell>
+                      {log?.jobType === 'outside-sleeve' ? 'Outside Sleeve' : 
+                       log?.jobType === 'outside-rod' ? 'Outside Rod' : 
+                       log?.jobType === 'outside-pin' ? 'Outside Pin' : log?.jobType}
+                    </TableCell>
                     <TableCell>{log?.partyName || '—'}</TableCell>
                     <TableCell>{log?.partName || '—'}</TableCell>
                     <TableCell>{Number(log?.totalParts ?? log?.quantity ?? 0)}</TableCell>
@@ -298,6 +350,7 @@ export function TransporterLogs() {
                   defaultValue={editing.log.jobType}
                   onChange={(e) => setEditing(prev => ({ ...prev, log: { ...prev.log, jobType: e.target.value } }))}
                 >
+                  <option value="outside-sleeve">Outside Sleeve</option>
                   <option value="outside-rod">Outside Rod</option>
                   <option value="outside-pin">Outside Pin</option>
                 </select>
