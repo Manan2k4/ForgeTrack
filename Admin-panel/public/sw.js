@@ -1,9 +1,8 @@
-// Basic service worker for offline shell
-const CACHE_NAME = 'forge-admin-v1';
+// Service worker with network-first strategy for dynamic content
+const CACHE_NAME = 'forge-admin-v2';
 const CORE_ASSETS = [
   '/',
   '/index.html'
-  // We intentionally do NOT precache manifest or icons to avoid stale icon issues after updates.
 ];
 
 self.addEventListener('install', (event) => {
@@ -25,6 +24,22 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+  
+  // Network-first strategy for JS/CSS and API calls
+  if (request.url.includes('.js') || request.url.includes('.css') || request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(request).then((resp) => {
+        const copy = resp.clone();
+        if (resp.ok) {
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        }
+        return resp;
+      }).catch(() => caches.match(request))
+    );
+    return;
+  }
+  
+  // Cache-first for other assets
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
