@@ -8,6 +8,8 @@ import { AddParty } from './admin/AddParty';
 import { AddJobType } from './admin/AddJobType';
 import { AddRate } from './admin/AddRate';
 import { EmployeeSalary } from './admin/EmployeeSalary';
+import { UpadEntry } from './admin/UpadEntry';
+import { LoanEntry } from './admin/LoanEntry';
 import { ViewLogs } from './admin/ViewLogs';
 import { TransporterLogs } from './admin/TransporterLogs';
 import { LogOut, Users, UserPlus, Package, Activity, Menu, Truck, BarChart2, Building2, Wrench, DollarSign, Receipt } from 'lucide-react';
@@ -27,7 +29,19 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type ActiveTab = 'add-employee' | 'manage-employees' | 'add-product' | 'add-party' | 'add-job-type' | 'add-rate' | 'employee-salary' | 'view-logs' | 'transporter-logs' | 'analytics';
+type ActiveTab =
+  | 'add-employee'
+  | 'manage-employees'
+  | 'add-product'
+  | 'add-party'
+  | 'add-job-type'
+  | 'add-rate'
+  | 'employee-salary'
+  | 'upad-entry'
+  | 'loan-entry'
+  | 'view-logs'
+  | 'transporter-logs'
+  | 'analytics';
 
 export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
   // Persist the last selected tab; force default to 'view-logs'
@@ -51,6 +65,8 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
     { id: 'add-job-type' as const, label: 'Add Job Type', icon: Wrench }, // operations / work definitions
     { id: 'add-rate' as const, label: 'Add Rate', icon: DollarSign }, // job type rates
     { id: 'employee-salary' as const, label: 'Employee Salary', icon: Receipt }, // salary reports
+    { id: 'upad-entry' as const, label: 'Upad Entry', icon: DollarSign },
+    { id: 'loan-entry' as const, label: 'Loan Entry', icon: DollarSign },
     { id: 'view-logs' as const, label: 'View Logs', icon: Activity }, // internal production logs
     { id: 'transporter-logs' as const, label: 'Transporter Logs', icon: Truck }, // transport operations
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart2 }, // charts & stats
@@ -72,6 +88,10 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
         return <AddRate />;
       case 'employee-salary':
         return <EmployeeSalary />;
+      case 'upad-entry':
+        return <UpadEntry />;
+      case 'loan-entry':
+        return <LoanEntry />;
       case 'view-logs':
         return <ViewLogs />;
       case 'transporter-logs':

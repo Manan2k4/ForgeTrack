@@ -11,6 +11,7 @@ const transporterLogRoutes = require('./routes/transporterLogs');
 const partyRoutes = require('./routes/parties');
 const jobTypeRoutes = require('./routes/jobTypes');
 const salaryRoutes = require('./routes/salary');
+const financeRoutes = require('./routes/finance');
 const Product = require('./models/Product');
 
 const app = express();
@@ -64,6 +65,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // MongoDB Connection
 const mongoUri = process.env.MONGODB_URI;
@@ -92,6 +94,9 @@ app.use('/api/transporter-logs', transporterLogRoutes);
 app.use('/api/parties', partyRoutes);
 app.use('/api/job-types', jobTypeRoutes);
 app.use('/api/salary', salaryRoutes);
+app.use('/api/finance', financeRoutes);
+const exportRoutes = require('./routes/export');
+app.use('/api/export', exportRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

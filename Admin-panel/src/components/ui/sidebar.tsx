@@ -244,9 +244,13 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
+          // Ensure sidebar area can scroll independently and never exceeds viewport height
           className="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
+          style={{ maxHeight: '100svh', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
         >
+          <div style={{ overflow: 'auto', maxHeight: '100%', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
           {children}
+          </div>
         </div>
       </div>
     </div>

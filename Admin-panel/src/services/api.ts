@@ -387,6 +387,88 @@ class ApiService {
       monthTotal: number;
     }>(`/salary/employee/${employeeId}?month=${month}&year=${year}`);
   }
+
+  // Upad APIs
+  async createUpad(data: { employeeId: string; month: number; year: number; amount: number; note?: string }) {
+    return this.request<any>('/finance/upad', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listUpad(params: { employeeId?: string; month?: number; year?: number }) {
+    const search = new URLSearchParams();
+    if (params.employeeId) search.set('employeeId', params.employeeId);
+    if (typeof params.month === 'number') search.set('month', String(params.month));
+    if (typeof params.year === 'number') search.set('year', String(params.year));
+    const qs = search.toString();
+    return this.request<any>(`/finance/upad${qs ? `?${qs}` : ''}`);
+  }
+
+  async updateUpad(id: string, data: Partial<{ month: number; year: number; amount: number; note?: string }>) {
+    return this.request<any>(`/finance/upad/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteUpad(id: string) {
+    return this.request<any>(`/finance/upad/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Loan APIs
+  async createLoan(data: { employeeId: string; startMonth: number; startYear: number; principal: number; defaultInstallment: number; note?: string }) {
+    return this.request<any>('/finance/loans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listLoans(params: { employeeId?: string; status?: string }) {
+    const search = new URLSearchParams();
+    if (params.employeeId) search.set('employeeId', params.employeeId);
+    if (params.status) search.set('status', params.status);
+    const qs = search.toString();
+    return this.request<any>(`/finance/loans${qs ? `?${qs}` : ''}`);
+  }
+
+  async updateLoan(id: string, data: Partial<{ principal: number; defaultInstallment: number; note?: string; status?: string }>) {
+    return this.request<any>(`/finance/loans/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteLoan(id: string) {
+    return this.request<any>(`/finance/loans/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async createLoanTransaction(loanId: string, data: { month: number; year: number; amount: number; mode?: string }) {
+    return this.request<any>(`/finance/loans/${loanId}/transactions`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listLoanTransactions(loanId: string) {
+    return this.request<any[]>(`/finance/loans/${loanId}/transactions`);
+  }
+
+  async getEmployeeLoanData(employeeId: string) {
+    return this.request<{ loans: any[]; transactions: any[]; stats: Record<string, { paidTotal: number; pendingAmount: number }> }>(
+      `/finance/loans/${employeeId}/data`
+    );
+  }
+
+  async getLoanSummary(employeeId: string, month: number, year: number) {
+    return this.request<{ pendingTotal: number; installmentForMonth: number }>(
+      `/finance/loans/${employeeId}/summary?month=${month}&year=${year}`
+    );
+  }
 }
 
 export const apiService = new ApiService();
