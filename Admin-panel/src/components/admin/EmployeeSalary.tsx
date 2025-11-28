@@ -131,9 +131,7 @@ export function EmployeeSalary() {
             // If any manual payment exists for this loan in the selected month,
             // nullify the EMI for that loan (treat as 0 for the salary report).
             const hasManual = txForLoanThisMonth.some((t: any) => (t.mode || 'salary-deduction') === 'manual-payment');
-            if (hasManual) {
-              return sum + 0;
-            }
+            if (hasManual) return sum + 0;
 
             if (txForLoanThisMonth.length > 0) {
               return sum + txForLoanThisMonth.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
@@ -161,208 +159,19 @@ export function EmployeeSalary() {
           }, 0);
           setPendingLoanTotal(pendingTotal || 0);
         } catch (e: any) {
-          console.error('Failed to load Loan info for salary view', e);
+          console.error('Failed to load loan data for salary view', e);
           setLoanInstallmentTotal(0);
           setPendingLoanTotal(0);
           setWaivedLoans([]);
         }
-      } else {
-        setSalaryData(null);
-        setUpadTotal(0);
-        setLoanInstallmentTotal(0);
-        setPendingLoanTotal(0);
-      }
-    } catch (error: any) {
-      console.error('Salary fetch error:', error);
-      toast.error(error.message || 'Failed to fetch salary data');
-      setSalaryData(null);
+
+      } // end if(response.success && response.data)
+    } catch (err: any) {
+      console.error('Failed to load salary data', err);
+      toast.error(err?.message || 'Failed to load salary data');
     } finally {
       setLoading(false);
     }
-  };
-
-  // CSV export removed per design request; keep only Excel export matching the report layout
-
-  const downloadExcel = async () => {
-    if (!salaryData) return;
-    // Build HTML with two-column layout: left = detailed table, right = vertical summary
-    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    const periodLabel = `${months[salaryData.month - 1] || ''} ${salaryData.year}`;
-
-    // Build main table HTML (left column)
-    let leftTable = `
-      <table style="border-collapse:collapse;width:100%;">
-        <thead>
-          <tr>
-            <th style="border-bottom:1px solid #ddd;padding:8px;text-align:left;">Date</th>
-            <th style="border-bottom:1px solid #ddd;padding:8px;text-align:center;">${''}</th>
-            <th style="border-bottom:1px solid #ddd;padding:8px;text-align:right;">Day Total (₹)</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-
-    // Determine jobColumns like the UI does
-    const jobColumns: string[] = [];
-    const jobLabelMap: Record<string, string> = {} as any;
-    salaryData.dailyLogs.forEach((day) => {
-      day.logs.forEach((log) => {
-        const key = `${log.jobName}|${log.partType}`;
-        if (!jobColumns.includes(key)) {
-          jobColumns.push(key);
-          jobLabelMap[key] = `${log.jobName} (${log.partType})`;
-        }
-      });
-    });
-    jobColumns.sort((a,b) => jobLabelMap[a].localeCompare(jobLabelMap[b]));
-
-    // Header with dynamic job columns (we will only include the first job column header cell to match screenshot)
-    leftTable = `
-      <table style="border-collapse:collapse;width:100%;">
-        <thead>
-          <tr>
-            <th style="border-bottom:1px solid #ddd;padding:8px;text-align:left;">Date</th>
-            <th style="border-bottom:1px solid #ddd;padding:8px;text-align:center;">${jobColumns.length > 0 ? jobLabelMap[jobColumns[0]] : ''}</th>
-            <th style="border-bottom:1px solid #ddd;padding:8px;text-align:right;">Day Total (₹)</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-
-    // Compute column text lengths and build rows
-    let maxDateLen = 0;
-    let maxJobLen = 0;
-    let maxTotalLen = 0;
-
-    const rowsHtml: string[] = [];
-    salaryData.dailyLogs.forEach((day) => {
-      const dateObj = new Date(day.date);
-      const formattedDate = `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`;
-      maxDateLen = Math.max(maxDateLen, formattedDate.length);
-
-      // find qty for first job column
-      let firstQty = '';
-      if (jobColumns.length > 0) {
-        const key = jobColumns[0];
-        const qty = day.logs.reduce((acc, log) => {
-          const k = `${log.jobName}|${log.partType}`;
-          if (k === key) return acc + (log.okParts || 0);
-          return acc;
-        }, 0);
-        firstQty = qty ? qty.toFixed(3) : '';
-      }
-      maxJobLen = Math.max(maxJobLen, (jobColumns.length > 0 ? (jobLabelMap[jobColumns[0]] || '').length : 0), firstQty.length);
-
-      const totalText = `₹${day.dayTotal.toFixed(2)}`;
-      maxTotalLen = Math.max(maxTotalLen, totalText.length);
-
-      rowsHtml.push(`<tr style="height:28px;"><td style="padding:12px;border-bottom:1px solid #eee;">${formattedDate}</td><td style="padding:12px;border-bottom:1px solid #eee;text-align:center;">${firstQty}</td><td style="padding:12px;border-bottom:1px solid #eee;text-align:right;">${totalText}</td></tr>`);
-    });
-
-    // Estimate pixel widths from character counts (approximate). Add padding.
-    // Use slightly larger char width and minimums so exported table has more breathing room
-    const charPx = 9; // approximate average char width used for layout
-    const dateWidth = Math.min(400, Math.max(120, Math.ceil(maxDateLen * charPx + 40)));
-    const jobWidth = Math.min(800, Math.max(140, Math.ceil(maxJobLen * charPx + 40)));
-    const totalWidth = Math.min(260, Math.max(120, Math.ceil(maxTotalLen * charPx + 40)));
-
-    const colgroup = `<colgroup><col style="width:${dateWidth}px;"/><col style="width:${jobWidth}px;"/><col style="width:${totalWidth}px;"/></colgroup>`;
-
-    // Insert colgroup into table header with more spacious styling
-    leftTable = `
-      <table style="border-collapse:separate;border-spacing:0 8px;width:100%;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;">
-        ${colgroup}
-        <thead>
-          <tr>
-            <th style="background:#fafafa;border-bottom:1px solid #ddd;padding:12px 12px 10px 12px;text-align:left;font-weight:600;">Date</th>
-            <th style="background:#fafafa;border-bottom:1px solid #ddd;padding:12px;text-align:center;font-weight:600;">${jobColumns.length > 0 ? jobLabelMap[jobColumns[0]] : ''}</th>
-            <th style="background:#fafafa;border-bottom:1px solid #ddd;padding:12px;text-align:right;font-weight:600;">Day Total (₹)</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-
-    leftTable += rowsHtml.join('');
-
-    // Qty Work & Rate & Amount rows (aggregate)
-    const qtyTotals: Record<string, number> = {};
-    const rateByJob: Record<string, number> = {};
-    const amountByJob: Record<string, number> = {};
-    salaryData.dailyLogs.forEach((day) => {
-      day.logs.forEach((log) => {
-        const key = `${log.jobName}|${log.partType}`;
-        qtyTotals[key] = (qtyTotals[key] || 0) + (log.okParts || 0);
-        rateByJob[key] = log.rate;
-        amountByJob[key] = (amountByJob[key] || 0) + (log.amount || 0);
-      });
-    });
-
-    const basic = salaryData.monthTotal;
-
-    leftTable += `<tr style="background:#f6f6f6;font-weight:bold;"><td style="padding:12px;">Qty Work</td><td style="padding:12px;text-align:center;">${jobColumns.length>0 && qtyTotals[jobColumns[0]] ? qtyTotals[jobColumns[0]].toFixed(3) : ''}</td><td></td></tr>`;
-    leftTable += `<tr style="font-weight:bold;"><td style="padding:12px;">Rate</td><td style="padding:12px;text-align:center;">${jobColumns.length>0 && rateByJob[jobColumns[0]] ? `₹${rateByJob[jobColumns[0]].toFixed(2)}` : ''}</td><td></td></tr>`;
-    leftTable += `<tr style="font-weight:bold;"><td style="padding:12px;">Amount</td><td style="padding:12px;text-align:center;">${jobColumns.length>0 && amountByJob[jobColumns[0]] ? `₹${amountByJob[jobColumns[0]].toFixed(2)}` : ''}</td><td style="text-align:right;font-weight:bold;padding:12px;">₹${basic.toFixed(2)}</td></tr>`;
-
-    leftTable += `</tbody></table>`;
-
-    // Right column: vertical summary
-    const upad = upadTotal;
-    const pendingLoan = pendingLoanTotal;
-    const loanInstallment = loanInstallmentTotal;
-
-    let rightHtml = `
-      <div style="padding-left:16px;">
-        <div style="margin-bottom:8px;"><strong>Basic</strong><div>₹${basic.toFixed(2)}</div></div>
-        <div style="margin-bottom:8px;"><strong>Upad</strong><div>₹${upad.toFixed(2)}</div></div>
-        <div style="margin-bottom:8px;"><strong>Pend. Loan</strong><div>₹${pendingLoan.toFixed(2)}</div></div>
-        <div style="margin-bottom:8px;"><strong>Loan Installment</strong><div>₹${loanInstallment.toFixed(2)}</div></div>
-    `;
-
-    if (waivedLoans.length > 0) {
-      rightHtml += `<div style="margin-top:6px;color:#097969;">\u2713 Manual payment recorded — EMI waived for ${waivedLoans.length} loan${waivedLoans.length>1?'s':''}.</div>`;
-    }
-
-    rightHtml += `<div style="margin-top:16px;border-top:1px solid #ddd;padding-top:8px;"><strong>Net Amount</strong><div style="font-weight:bold;color:#0b6623;">₹${(basic - upad - loanInstallment).toFixed(2)}</div></div>`;
-    rightHtml += `</div>`;
-
-    const html = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-      <head><meta charset="UTF-8"></head>
-      <body>
-        <h2>Salary Report - ${salaryData.employeeName}</h2>
-        <div style="color:#666;margin-bottom:12px;">${periodLabel}</div>
-        <div style="display:flex;gap:16px;">
-          <div style="flex:1;">${leftTable}</div>
-          <div style="width:260px;">${rightHtml}</div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-    const filename = `${salaryData.employeeName.replace(/\s+/g, '_')}_${salaryData.month}_${salaryData.year}_salary.xls`;
-
-    // Edge/IE fallback
-    const nav: any = (window.navigator as any);
-    if (nav && typeof nav.msSaveOrOpenBlob === 'function') {
-      try { nav.msSaveOrOpenBlob(blob, filename); toast.success('Excel file saved'); } catch (e) { console.error(e); toast.error('Save failed'); }
-      return;
-    }
-
-    // Client-side blob + visible user-click link to avoid extensions blocking programmatic clicks
-    try {
-      const downloadUrl = URL.createObjectURL(blob);
-      try { setExportUrl(downloadUrl); } catch (e) { /* ignore */ }
-
-      // Keep the URL around for a short period so user can click it. Revoke after 30s.
-      setTimeout(() => { try { URL.revokeObjectURL(downloadUrl); setExportUrl(''); } catch (e) {} }, 30_000);
-
-      toast.success('Download ready — click the link next to the Excel button to save the file');
-    } catch (e: any) {
-      console.error('Client-side export failed', e);
-      toast.error(e?.message || 'Export failed — please try again');
-    }
-  };
 
   // Helper that builds the HTML and filename synchronously so an anchor click can use it
   const buildExportHtmlAndFilename = () => {
@@ -370,11 +179,12 @@ export function EmployeeSalary() {
     const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const periodLabel = `${months[salaryData.month - 1] || ''} ${salaryData.year}`;
 
-    // (Re-use same table building logic as in downloadExcel) -- simplified: reuse downloadExcel's HTML generation by calling it indirectly
-    // For brevity, rebuild a compact HTML similar to the existing one.
-    // Build leftTable quickly (only first job column shown)
+    // Determine job columns and compute month totals
     const jobColumns: string[] = [];
     const jobLabelMap: Record<string, string> = {} as any;
+    const qtyTotals: Record<string, number> = {};
+    const rateByJob: Record<string, number> = {};
+
     salaryData.dailyLogs.forEach((day) => {
       day.logs.forEach((log) => {
         const key = `${log.jobName}|${log.partType}`;
@@ -382,41 +192,58 @@ export function EmployeeSalary() {
           jobColumns.push(key);
           jobLabelMap[key] = `${log.jobName} (${log.partType})`;
         }
+        qtyTotals[key] = (qtyTotals[key] || 0) + (log.okParts || 0);
+        // Prefer the latest non-zero rate seen
+        if (typeof log.rate === 'number' && log.rate > 0) rateByJob[key] = log.rate;
       });
     });
     jobColumns.sort((a,b) => jobLabelMap[a].localeCompare(jobLabelMap[b]));
 
-    let leftTable = `<table style="border-collapse:separate;border-spacing:0 8px;width:100%;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;">`;
-    leftTable += `<colgroup><col style="width:140px;"/><col style="width:220px;"/><col style="width:120px;"/></colgroup>`;
-    leftTable += `<thead><tr><th style="padding:12px;text-align:left;">Date</th><th style="padding:12px;text-align:center;">${jobColumns.length>0?jobLabelMap[jobColumns[0]]:''}</th><th style="padding:12px;text-align:right;">Day Total (₹)</th></tr></thead><tbody>`;
-    salaryData.dailyLogs.forEach((day) => {
-      const dateObj = new Date(day.date);
-      const formattedDate = `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`;
-      let firstQty = '';
-      if (jobColumns.length > 0) {
-        const key = jobColumns[0];
-        const qty = day.logs.reduce((acc, log) => {
-          const k = `${log.jobName}|${log.partType}`;
-          if (k === key) return acc + (log.okParts || 0);
-          return acc;
-        }, 0);
-        firstQty = qty ? qty.toFixed(3) : '';
-      }
-      leftTable += `<tr style="height:28px;"><td style="padding:12px;">${formattedDate}</td><td style="padding:12px;text-align:center;">${firstQty}</td><td style="padding:12px;text-align:right;">₹${day.dayTotal.toFixed(2)}</td></tr>`;
+    // Build a compact summary table: one column per job-type (no leading metric column)
+    let table = `<table border="0" style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:13px;width:100%;">`;
+    // Header row: job type columns
+    table += `<thead><tr>`;
+    jobColumns.forEach((k) => {
+      table += `<th style="text-align:center;padding:8px;border-bottom:1px solid #ddd;">${jobLabelMap[k]}</th>`;
     });
-    leftTable += `</tbody></table>`;
+    table += `</tr></thead><tbody>`;
 
-    const basic = salaryData.monthTotal;
-    const upad = upadTotal;
-    const pendingLoan = pendingLoanTotal;
-    const loanInstallment = loanInstallmentTotal;
+    // Qty (total OKParts for month)
+    table += `<tr>`;
+    jobColumns.forEach((k) => {
+      const q = qtyTotals[k] || 0;
+      table += `<td style="text-align:center;padding:8px;font-weight:600;">${q ? q.toFixed(3) : ''}</td>`;
+    });
+    table += `</tr>`;
 
-    const rightHtml = `<div style="padding-left:16px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;"><div style="margin-bottom:8px;"><strong>Basic</strong><div>₹${basic.toFixed(2)}</div></div><div style="margin-bottom:8px;"><strong>Upad</strong><div>₹${upad.toFixed(2)}</div></div><div style="margin-bottom:8px;"><strong>Pend. Loan</strong><div>₹${pendingLoan.toFixed(2)}</div></div><div style="margin-bottom:8px;"><strong>Loan Installment</strong><div>₹${loanInstallment.toFixed(2)}</div></div>${waivedLoans.length>0?`<div style="margin-top:6px;color:#097969;">\u2713 Manual payment recorded — EMI waived for ${waivedLoans.length} loan${waivedLoans.length>1?'s':''}.</div>`:''}<div style="margin-top:16px;border-top:1px solid #ddd;padding-top:8px;"><strong>Net Amount</strong><div style="font-weight:bold;color:#0b6623;">₹${(basic-upad-loanInstallment).toFixed(2)}</div></div></div>`;
+    // Rate row
+    table += `<tr>`;
+    jobColumns.forEach((k) => {
+      const r = rateByJob[k] || 0;
+      table += `<td style="text-align:center;padding:8px;">${r ? `₹${r.toFixed(2)}` : ''}</td>`;
+    });
+    table += `</tr>`;
 
-    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><h2>Salary Report - ${salaryData.employeeName}</h2><div style="color:#666;margin-bottom:12px;">${periodLabel}</div><div style="display:flex;gap:16px;"><div style="flex:1;">${leftTable}</div><div style="width:320px;">${rightHtml}</div></div></body></html>`;
+    // Amount row (qty * rate)
+    table += `<tr>`;
+    let grandAmount = 0;
+    jobColumns.forEach((k) => {
+      const q = qtyTotals[k] || 0;
+      const r = rateByJob[k] || 0;
+      const amt = q * r;
+      grandAmount += amt;
+      table += `<td style="text-align:center;padding:8px;">${amt ? `₹${amt.toFixed(2)}` : ''}</td>`;
+    });
+    table += `</tr>`;
 
-    const filename = `${salaryData.employeeName.replace(/\s+/g, '_')}_${salaryData.month}_${salaryData.year}_salary.xls`;
-    return { html, filename };
+    table += `</tbody></table>`;
+
+    const html = `<html><head><meta charset="UTF-8"></head><body><h2>Salary Summary - ${salaryData.employeeName}</h2><div style="color:#666;margin-bottom:8px;">${periodLabel}</div>${table}<div style="margin-top:12px;font-weight:600;">Net Amount: ₹${grandAmount.toFixed(2)}</div></body></html>`;
+
+    // Prepend BOM to help Excel detect UTF-8 and render rupee symbol correctly
+    const bom = '\uFEFF';
+    const filename = `${salaryData.employeeName.replace(/\s+/g, '_')}_${salaryData.month}_${salaryData.year}_salary_summary.xls`;
+    return { html: bom + html, filename };
   };
 
   // Anchor click handler: create blob URL synchronously and assign to clicked anchor so browser performs download as a direct user-initiated navigation
@@ -424,41 +251,18 @@ export function EmployeeSalary() {
     if (!salaryData) return;
     const info = buildExportHtmlAndFilename();
     if (!info) return;
-    const blob = new Blob([info.html], { type: 'application/vnd.ms-excel' });
+    // DEBUG: log the generated HTML and filename so we can confirm runtime uses the new schema
+    // Open DevTools Console and click the Excel button to inspect this output.
+    // Remove or silence this log once confirmed.
+    // eslint-disable-next-line no-console
+    console.debug('EXPORT_INFO', { filename: info.filename, htmlPreview: (info.html || '').slice(0, 200) });
+    const blob = new Blob([info.html], { type: 'application/vnd.ms-excel;charset=utf-8' });
     const downloadUrl = URL.createObjectURL(blob);
     try {
       const a = e.currentTarget;
       a.href = downloadUrl;
-      // Prevent overwrite issues by generating a unique filename if this name was already downloaded earlier
-      const getUniqueFilename = (baseName: string) => {
-        try {
-          const key = 'ft_downloaded_names_v1';
-          const raw = localStorage.getItem(key) || '[]';
-          const used: string[] = JSON.parse(raw);
-          if (!used.includes(baseName)) {
-            used.push(baseName);
-            localStorage.setItem(key, JSON.stringify(used));
-            return baseName;
-          }
-          const dot = baseName.lastIndexOf('.');
-          const name = dot >= 0 ? baseName.slice(0, dot) : baseName;
-          const ext = dot >= 0 ? baseName.slice(dot) : '';
-          let i = 1;
-          let candidate = `${name} (${i})${ext}`;
-          while (used.includes(candidate) && i < 1000) {
-            i += 1;
-            candidate = `${name} (${i})${ext}`;
-          }
-          used.push(candidate);
-          localStorage.setItem(key, JSON.stringify(used));
-          return candidate;
-        } catch (err) {
-          return baseName;
-        }
-      };
-
-      const unique = getUniqueFilename(info.filename);
-      a.download = unique;
+      // Use the generated filename directly so users can overwrite existing files
+      a.download = info.filename;
       // Revoke after a while
       setTimeout(() => { try { URL.revokeObjectURL(downloadUrl); } catch (err) {} }, 30_000);
     } catch (err) {
@@ -770,3 +574,6 @@ export function EmployeeSalary() {
     </div>
   );
 }
+
+}
+

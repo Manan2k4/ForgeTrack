@@ -77,3 +77,8 @@ backend/middleware/Code-component-*.tsx
 
 # Local admin utility scripts (untracked)
 backend/scripts/setAdmin.js
+Adobe Scan 27 Nov 2025.pdf
+tools/count_braces.js
+tools/find_brace_mismatch.js
+tools/trace_braces.js
+tools/unmatched_braces.js

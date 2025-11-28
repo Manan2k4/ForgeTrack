@@ -108,6 +108,7 @@ router.get('/', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const { jobType, partyName, totalParts, rejection = 0, partName, weight = 0 } = req.body;
+    const { employeeId: overrideEmployeeId, workDate: overrideWorkDate } = req.body || {};
     console.log('=== TRANSPORTER LOG POST REQUEST ===');
     console.log('Request body:', req.body);
     console.log('User:', req.user?.name, 'Department:', req.user?.department, 'Role:', req.user?.role);
@@ -123,13 +124,40 @@ router.post('/', auth, async (req, res) => {
     if (rejection > totalParts) return res.status(400).json({ success: false, message: 'Rejection cannot exceed total parts' });
     if (weight < 0) return res.status(400).json({ success: false, message: 'Weight cannot be negative' });
 
-    // Only Transporter employees are allowed to create transporter logs
-    if (!(req.user?.role === 'employee' && req.user?.department === 'Transporter')) {
-      return res.status(403).json({ success: false, message: 'Only Transporter employees can create transporter logs' });
+    // Resolve employee and workDate
+    let resolvedEmployeeId = req.user._id;
+    let resolvedEmployeeName = req.user.name;
+    let resolvedEmployeeDept = req.user.department;
+
+    if (req.user?.role === 'admin' && overrideEmployeeId) {
+      try {
+        const User = require('../models/User');
+        const targetEmp = await User.findById(overrideEmployeeId).lean();
+        if (!targetEmp) return res.status(400).json({ success: false, message: 'employeeId not found' });
+        if (targetEmp.role !== 'employee') return res.status(400).json({ success: false, message: 'employeeId must be an employee' });
+        if (targetEmp.department !== 'Transporter') return res.status(400).json({ success: false, message: 'employee must be in Transporter department' });
+        resolvedEmployeeId = targetEmp._id;
+        resolvedEmployeeName = targetEmp.name || 'Unknown';
+        resolvedEmployeeDept = targetEmp.department || undefined;
+      } catch (e) {
+        return res.status(400).json({ success: false, message: 'Invalid employeeId' });
+      }
+    } else {
+      // Only Transporter employees are allowed otherwise
+      if (!(req.user?.role === 'employee' && req.user?.department === 'Transporter')) {
+        return res.status(403).json({ success: false, message: 'Only Transporter employees can create transporter logs' });
+      }
     }
 
-    const today = new Date();
-    const workDate = today.toISOString().split('T')[0];
+    let workDate;
+    if (req.user?.role === 'admin' && typeof overrideWorkDate === 'string' && overrideWorkDate.trim()) {
+      const isoMatch = /^\d{4}-\d{2}-\d{2}$/.test(overrideWorkDate.trim());
+      if (!isoMatch) return res.status(400).json({ success: false, message: 'workDate must be YYYY-MM-DD' });
+      workDate = overrideWorkDate.trim();
+    } else {
+      const today = new Date();
+      workDate = today.toISOString().split('T')[0];
+    }
 
     // Validate partName matches an existing Product for corresponding type
     try {
@@ -156,7 +184,7 @@ router.post('/', auth, async (req, res) => {
     }
 
     const log = new TransporterLog({
-      employee: req.user._id,
+      employee: resolvedEmployeeId,
       jobType,
       partyName,
       partName,
@@ -164,8 +192,8 @@ router.post('/', auth, async (req, res) => {
       rejection,
       weight,
       workDate,
-      employeeName: req.user.name,
-      employeeDepartment: req.user.department,
+      employeeName: resolvedEmployeeName,
+      employeeDepartment: resolvedEmployeeDept,
     });
     await log.save();
     // populate employee snapshot for streaming payload

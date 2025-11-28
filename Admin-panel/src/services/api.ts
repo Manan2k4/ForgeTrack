@@ -185,9 +185,13 @@ class ApiService {
 
   async createWorkLog(workLogData: {
     productId: string;
-    partSize: string;
+    partSize?: string;
+    specialSize?: string;
+    operation?: string | null;
     totalParts: number;
     rejection?: number;
+    employeeId?: string; // admin override
+    workDate?: string;   // YYYY-MM-DD, admin override
   }) {
     return this.request<any>('/work-logs', {
       method: 'POST',
@@ -269,7 +273,8 @@ class ApiService {
     totalParts: number;
     rejection?: number;
     weight?: number;
-    workDate?: string; // YYYY-MM-DD
+    workDate?: string;   // YYYY-MM-DD
+    employeeId?: string; // admin override
   }) {
     return this.request<any>('/transporter-logs', {
       method: 'POST',

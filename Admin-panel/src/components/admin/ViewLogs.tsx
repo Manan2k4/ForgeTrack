@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
-import { Activity, Calendar, User, Download } from 'lucide-react';
+import { Activity, Calendar, User, Download, Plus } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { toast } from 'sonner';
 
@@ -29,6 +29,31 @@ export function ViewLogs() {
   const [filteredLogs, setFilteredLogs] = useState<WorkLog[]>([]);
   const [editing, setEditing] = useState<{ open: boolean; log?: any; saving: boolean }>({ open: false, log: undefined, saving: false });
   const [deleting, setDeleting] = useState<{ id?: string; confirming: boolean }>({ id: undefined, confirming: false });
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualEmployees, setManualEmployees] = useState<Array<{ id: string; name: string; department?: string }>>([]);
+  const [manualProducts, setManualProducts] = useState<Array<{ id: string; label: string }>>([]);
+  const [manualForm, setManualForm] = useState<{
+    employeeId: string;
+    workDate: string; // YYYY-MM-DD
+    jobType: 'rod' | 'sleeve' | 'pin' | '';
+    productId: string;
+    partSize: string;
+    specialSize: string;
+    operation: string;
+    totalParts: number | '';
+    rejection: number | '';
+  }>({
+    employeeId: '',
+    workDate: '',
+    jobType: '',
+    productId: '',
+    partSize: '',
+    specialSize: '',
+    operation: '',
+    totalParts: '',
+    rejection: 0,
+  });
   // Date range filters (YYYY-MM-DD)
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
@@ -41,6 +66,21 @@ export function ViewLogs() {
     loadWorkLogs();
     loadJobTypes();
   }, []);
+
+  // When manual modal opens, load employees
+  useEffect(() => {
+    if (!manualOpen) return;
+    (async () => {
+      try {
+        const resp = await apiService.getEmployees({ includeInactive: false });
+        const list = (resp.data || []) as any[];
+        const emps = list.map((e: any) => ({ id: e._id || e.id, name: e.name, department: e.department }));
+        setManualEmployees(emps);
+      } catch {
+        setManualEmployees([]);
+      }
+    })();
+  }, [manualOpen]);
 
   const loadJobTypes = async () => {
     try {
@@ -63,6 +103,25 @@ export function ViewLogs() {
       if (cached && typeof cached === 'object') setOperationOptionsMap(cached);
     }
   };
+
+  // Load products when jobType changes
+  useEffect(() => {
+    (async () => {
+      if (!manualForm.jobType) { setManualProducts([]); return; }
+      try {
+        const resp = await apiService.getProducts(manualForm.jobType);
+        const items = (resp.data || []) as any[];
+        const mapped = items.map((p: any) => ({
+          id: p._id || p.id,
+          label: manualForm.jobType === 'sleeve' ? (p.code || '(no-code)') : (p.partName || '(no-name)')
+        }));
+        setManualProducts(mapped);
+      } catch {
+        setManualProducts([]);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manualForm.jobType]);
 
   // SSE real-time subscription
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -344,10 +403,16 @@ export function ViewLogs() {
               <CardTitle>Filters</CardTitle>
               <CardDescription>Filter work logs by date, employee, job type, or department</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={exportWorkLogs} disabled={filteredLogs.length === 0}>
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setManualOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Manual Entry
+              </Button>
+              <Button variant="outline" size="sm" onClick={exportWorkLogs} disabled={filteredLogs.length === 0}>
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -491,6 +556,176 @@ export function ViewLogs() {
           </Card>
         ))
       )}
+
+      {/* Edit Modal */}
+      {/* Manual Entry Modal */}
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manual Work Log Entry</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Employee</label>
+              <Select value={manualForm.employeeId} onValueChange={(v) => setManualForm(prev => ({ ...prev, employeeId: v }))}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {manualEmployees.map(e => (
+                    <SelectItem key={e.id} value={String(e.id)}>
+                      {e.name}{e.department ? ` (${e.department})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Date</label>
+              <input
+                type="date"
+                className="border rounded-md h-10 px-3 w-full"
+                value={manualForm.workDate}
+                onChange={(e) => setManualForm(prev => ({ ...prev, workDate: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Job Type</label>
+              <Select value={manualForm.jobType} onValueChange={(v: any) => setManualForm(prev => ({ ...prev, jobType: v, productId: '' }))}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select job type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rod">Rod</SelectItem>
+                  <SelectItem value="sleeve">Sleeve</SelectItem>
+                  <SelectItem value="pin">Pin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Product</label>
+              <Select value={manualForm.productId} onValueChange={(v) => setManualForm(prev => ({ ...prev, productId: v }))} disabled={!manualForm.jobType}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder={manualForm.jobType ? 'Select product' : 'Select job type first'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {manualProducts.map(p => (
+                    <SelectItem key={p.id} value={String(p.id)}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Part Size</label>
+              <input
+                type="text"
+                className="border rounded-md h-10 px-3 w-full"
+                value={manualForm.partSize}
+                onChange={(e) => setManualForm(prev => ({ ...prev, partSize: e.target.value }))}
+                placeholder="e.g. 10mm"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Special Size</label>
+              <input
+                type="text"
+                className="border rounded-md h-10 px-3 w-full"
+                value={manualForm.specialSize}
+                onChange={(e) => setManualForm(prev => ({ ...prev, specialSize: e.target.value }))}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium">Operation</label>
+              {(() => {
+                const partType = manualForm.jobType as string;
+                const options = operationOptionsMap[partType] || [];
+                if (options.length > 0) {
+                  return (
+                    <Select value={manualForm.operation} onValueChange={(v) => setManualForm(prev => ({ ...prev, operation: v }))}>
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder="Select operation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {options.map((op) => (
+                          <SelectItem key={op} value={op}>{op}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  );
+                }
+                return (
+                  <input
+                    type="text"
+                    className="border rounded-md h-10 px-3 w-full"
+                    placeholder="Enter operation"
+                    value={manualForm.operation}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, operation: e.target.value }))}
+                  />
+                );
+              })()}
+            </div>
+            <div>
+              <label className="text-sm font-medium">Total Parts</label>
+              <input
+                type="number"
+                className="border rounded-md h-10 px-3 w-full"
+                value={manualForm.totalParts}
+                min={1}
+                onChange={(e) => setManualForm(prev => ({ ...prev, totalParts: Number(e.target.value) }))}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Rejection</label>
+              <input
+                type="number"
+                className="border rounded-md h-10 px-3 w-full"
+                value={manualForm.rejection}
+                min={0}
+                onChange={(e) => setManualForm(prev => ({ ...prev, rejection: Number(e.target.value) }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualOpen(false)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                try {
+                  if (!manualForm.employeeId) return toast.error('Please select employee');
+                  if (!manualForm.workDate) return toast.error('Please pick a date');
+                  if (!manualForm.jobType) return toast.error('Select job type');
+                  if (!manualForm.productId) return toast.error('Select product');
+                  if (!manualForm.partSize && !manualForm.specialSize) return toast.error('Enter part size or special size');
+                  if (!manualForm.totalParts || manualForm.totalParts < 1) return toast.error('Total parts must be at least 1');
+
+                  setManualSaving(true);
+                  await apiService.createWorkLog({
+                    productId: manualForm.productId,
+                    partSize: manualForm.partSize || undefined,
+                    specialSize: manualForm.specialSize || undefined,
+                    operation: manualForm.operation || undefined,
+                    totalParts: Number(manualForm.totalParts),
+                    rejection: Number(manualForm.rejection || 0),
+                    employeeId: manualForm.employeeId,
+                    workDate: manualForm.workDate,
+                  });
+                  toast.success('Work log created');
+                  setManualOpen(false);
+                  setManualSaving(false);
+                  setManualForm({ employeeId: '', workDate: '', jobType: '', productId: '', partSize: '', specialSize: '', operation: '', totalParts: '', rejection: 0 });
+                  await loadWorkLogs();
+                } catch (err: any) {
+                  setManualSaving(false);
+                  toast.error(err?.message || 'Failed to create work log');
+                }
+              }}
+              disabled={manualSaving}
+            >
+              {manualSaving ? 'Saving...' : 'Create'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Modal */}
       <Dialog open={editing.open} onOpenChange={(open) => setEditing(prev => ({ ...prev, open }))}>

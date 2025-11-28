@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
+import { Plus } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../ui/table';
@@ -28,12 +29,43 @@ export function TransporterLogs() {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<{ open: boolean; log?: any; saving: boolean }>({ open: false, log: undefined, saving: false });
   const [deleting, setDeleting] = useState<{ id?: string; confirming: boolean }>({ id: undefined, confirming: false });
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualProducts, setManualProducts] = useState<Array<{ id: string; label: string }>>([]);
+  const [manualForm, setManualForm] = useState<{
+    employeeId: string;
+    workDate: string;
+    jobType: 'outside-sleeve' | 'outside-rod' | 'outside-pin' | '';
+    partyName: string;
+    partName: string;
+    totalParts: number | '';
+    rejection: number | '';
+    weight: number | '';
+  }>({ employeeId: '', workDate: '', jobType: '', partyName: '', partName: '', totalParts: '', rejection: 0, weight: '' });
 
   useEffect(() => {
     loadEmployees();
     loadParties();
     loadData();
   }, []);
+
+  // Load products for selected job type (map to Product type)
+  useEffect(() => {
+    (async () => {
+      const jt = manualForm.jobType;
+      if (!jt) { setManualProducts([]); return; }
+      const partType = jt === 'outside-sleeve' ? 'sleeve' : (jt === 'outside-rod' ? 'rod' : 'pin');
+      try {
+        const resp = await apiService.getProducts(partType);
+        const items = (resp.data || []) as any[];
+        const mapped = items.map((p: any) => ({ id: p._id || p.id, label: partType === 'sleeve' ? (p.code || '(no-code)') : (p.partName || '(no-name)') }));
+        setManualProducts(mapped);
+      } catch {
+        setManualProducts([]);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manualForm.jobType]);
 
   // SSE real-time subscription for transporter logs (admin monitoring)
   const transporterEsRef = useRef<EventSource | null>(null);
@@ -191,8 +223,16 @@ export function TransporterLogs() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Transporter Logs</CardTitle>
-          <CardDescription>Track outside job work for rod/pin with rejections</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Transporter Logs</CardTitle>
+              <CardDescription>Track outside job work for rod/pin with rejections</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setManualOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Manual Entry
+            </Button>
+          </div>
         </CardHeader>
   <CardContent className="space-y-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
@@ -325,6 +365,117 @@ export function TransporterLogs() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Modal */}
+      {/* Manual Entry */}
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manual Transporter Log Entry</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm mb-1">Employee</label>
+              <Select value={manualForm.employeeId} onValueChange={(v) => setManualForm(prev => ({ ...prev, employeeId: v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select transporter" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map(e => (
+                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Date</label>
+              <Input type="date" value={manualForm.workDate} onChange={(e) => setManualForm(prev => ({ ...prev, workDate: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Job Type</label>
+              <Select value={manualForm.jobType} onValueChange={(v: any) => setManualForm(prev => ({ ...prev, jobType: v, partName: '' }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="outside-sleeve">Outside Sleeve</SelectItem>
+                  <SelectItem value="outside-rod">Outside Rod</SelectItem>
+                  <SelectItem value="outside-pin">Outside Pin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Party</label>
+              <Input type="text" value={manualForm.partyName} onChange={(e) => setManualForm(prev => ({ ...prev, partyName: e.target.value }))} placeholder="Party name" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm mb-1">Part Name {manualForm.jobType === 'outside-sleeve' ? '(use code)' : ''}</label>
+              <Select value={manualForm.partName} onValueChange={(v) => setManualForm(prev => ({ ...prev, partName: v }))} disabled={!manualForm.jobType}>
+                <SelectTrigger>
+                  <SelectValue placeholder={manualForm.jobType ? 'Select part' : 'Select job type first'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {manualProducts.map(p => (
+                    <SelectItem key={p.id} value={p.label}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Total Parts</label>
+              <Input type="number" min={1} value={manualForm.totalParts} onChange={(e) => setManualForm(prev => ({ ...prev, totalParts: Number(e.target.value) }))} />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Rejection</label>
+              <Input type="number" min={0} value={manualForm.rejection} onChange={(e) => setManualForm(prev => ({ ...prev, rejection: Number(e.target.value) }))} />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm mb-1">Weight (Kgs)</label>
+              <Input type="number" step="0.01" min={0} value={manualForm.weight} onChange={(e) => setManualForm(prev => ({ ...prev, weight: Number(e.target.value) }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualOpen(false)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                try {
+                  if (!manualForm.employeeId) return toast.error('Select employee');
+                  if (!manualForm.workDate) return toast.error('Pick a date');
+                  if (!manualForm.jobType) return toast.error('Select job type');
+                  if (!manualForm.partyName) return toast.error('Enter party');
+                  if (!manualForm.partName) return toast.error('Select part');
+                  if (!manualForm.totalParts || manualForm.totalParts < 1) return toast.error('Total parts must be at least 1');
+                  if (Number(manualForm.rejection || 0) > Number(manualForm.totalParts)) return toast.error('Rejection cannot exceed total parts');
+                  if (Number(manualForm.weight || 0) < 0) return toast.error('Weight cannot be negative');
+
+                  setManualSaving(true);
+                  await apiService.createTransporterLog({
+                    jobType: manualForm.jobType as any,
+                    partyName: manualForm.partyName,
+                    partName: manualForm.partName,
+                    totalParts: Number(manualForm.totalParts),
+                    rejection: Number(manualForm.rejection || 0),
+                    weight: Number(manualForm.weight || 0),
+                    workDate: manualForm.workDate,
+                    employeeId: manualForm.employeeId,
+                  });
+                  toast.success('Transporter log created');
+                  setManualSaving(false);
+                  setManualOpen(false);
+                  setManualForm({ employeeId: '', workDate: '', jobType: '', partyName: '', partName: '', totalParts: '', rejection: 0, weight: '' });
+                  await loadData();
+                } catch (err: any) {
+                  setManualSaving(false);
+                  toast.error(err?.message || 'Failed to create');
+                }
+              }}
+              disabled={manualSaving}
+            >
+              {manualSaving ? 'Saving...' : 'Create'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Modal */}
       <Dialog open={editing.open} onOpenChange={(open) => setEditing(prev => ({ ...prev, open }))}>

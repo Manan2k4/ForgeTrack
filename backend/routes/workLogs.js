@@ -131,6 +131,8 @@ router.get('/', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     let { productId, partSize, specialSize, operation } = req.body;
+    // Admin override support
+    const { employeeId: overrideEmployeeId, workDate: overrideWorkDate } = req.body || {};
     const totalParts = typeof req.body.totalParts === 'number' ? req.body.totalParts : (typeof req.body.quantity === 'number' ? req.body.quantity : undefined);
     const rejection = typeof req.body.rejection === 'number' ? req.body.rejection : 0;
 
@@ -154,10 +156,39 @@ router.post('/', auth, async (req, res) => {
       try { await product.save(); } catch (e) { console.warn('Failed to append size', e); }
     }
 
-    const today = new Date();
-    const workDate = today.toISOString().split('T')[0];
+    // Resolve employee and date (admin may override)
+    let resolvedEmployeeId = req.user._id;
+    let resolvedEmployeeName = req.user.name;
+    let resolvedEmployeeDept = req.user.department;
+
+    if (req.user.role === 'admin' && overrideEmployeeId) {
+      try {
+        const User = require('../models/User');
+        const targetEmp = await User.findById(overrideEmployeeId).lean();
+        if (!targetEmp) return res.status(400).json({ success: false, message: 'employeeId not found' });
+        if (targetEmp.role !== 'employee') return res.status(400).json({ success: false, message: 'employeeId must be an employee' });
+        resolvedEmployeeId = targetEmp._id;
+        resolvedEmployeeName = targetEmp.name || 'Unknown';
+        resolvedEmployeeDept = targetEmp.department || undefined;
+      } catch (e) {
+        return res.status(400).json({ success: false, message: 'Invalid employeeId' });
+      }
+    }
+
+    // Validate/resolve workDate
+    let workDate;
+    if (req.user.role === 'admin' && typeof overrideWorkDate === 'string' && overrideWorkDate.trim()) {
+      // Expect YYYY-MM-DD
+      const isoMatch = /^\d{4}-\d{2}-\d{2}$/.test(overrideWorkDate.trim());
+      if (!isoMatch) return res.status(400).json({ success: false, message: 'workDate must be YYYY-MM-DD' });
+      workDate = overrideWorkDate.trim();
+    } else {
+      const today = new Date();
+      workDate = today.toISOString().split('T')[0];
+    }
+
     const workLog = new WorkLog({
-      employee: req.user._id,
+      employee: resolvedEmployeeId,
       jobType: product.type,
       product: productId,
       partSize: partSize || null,
@@ -166,8 +197,8 @@ router.post('/', auth, async (req, res) => {
       totalParts,
       rejection,
       workDate,
-      employeeName: req.user.name,
-      employeeDepartment: req.user.department
+      employeeName: resolvedEmployeeName,
+      employeeDepartment: resolvedEmployeeDept
     });
     await workLog.save();
     await workLog.populate('employee', 'name username department');
