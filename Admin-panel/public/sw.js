@@ -36,9 +36,27 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+
+  // Treat navigations (HTML pages) as network-first so we don't serve stale index.html
+  const isNavigation = request.mode === 'navigate' || (request.headers.get && request.headers.get('accept') && request.headers.get('accept').includes('text/html')) || request.destination === 'document';
+
+  if (isNavigation) {
+    event.respondWith(
+      fetch(request).then((resp) => {
+        // Update cache with the fresh HTML for offline fallback
+        try {
+          const copy = resp.clone();
+          if (resp.ok) caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', copy));
+        } catch (e) { /* ignore */ }
+        return resp;
+      }).catch(() => caches.match('/index.html') || caches.match('/'))
+    );
+    return;
+  }
 
   // Network-first for JS/CSS and API calls (keep cache updated)
-  if (request.url.includes('.js') || request.url.includes('.css') || request.url.includes('/api/')) {
+  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request).then((resp) => {
         const copy = resp.clone();
@@ -64,7 +82,7 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => {
         // Fallback to the app shell for navigation requests
         if (request.destination === 'document') {
-          return caches.match('/');
+          return caches.match('/index.html') || caches.match('/');
         }
       });
     })
@@ -83,5 +101,20 @@ self.addEventListener('message', (event) => {
     self.clients.matchAll({ type: 'window' }).then((clients) => {
       clients.forEach((client) => client.postMessage({ type: 'RELOAD_PAGE' }));
     });
+  }
+  // Allow page to explicitly ask the worker to check for updates (call registration.update())
+  if (type === 'CHECK_FOR_UPDATES') {
+    if (self.registration && self.registration.update) {
+      self.registration.update().then(() => {
+        // Notify page that update check completed; if a new SW is waiting, client pages can prompt
+        self.clients.matchAll({ type: 'window' }).then((clients) => {
+          clients.forEach((client) => client.postMessage({ type: 'CHECK_FOR_UPDATES_DONE' }));
+        });
+      }).catch(() => {
+        self.clients.matchAll({ type: 'window' }).then((clients) => {
+          clients.forEach((client) => client.postMessage({ type: 'CHECK_FOR_UPDATES_FAILED' }));
+        });
+      });
+    }
   }
 });
