@@ -463,6 +463,19 @@ class ApiService {
     return this.request<any[]>(`/finance/loans/${loanId}/transactions`);
   }
 
+  async updateLoanTransaction(transactionId: string, data: Partial<{ month: number; year: number; amount: number; mode: string }>) {
+    return this.request<any>(`/finance/loans/transactions/${transactionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteLoanTransaction(transactionId: string) {
+    return this.request<any>(`/finance/loans/transactions/${transactionId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getEmployeeLoanData(employeeId: string) {
     return this.request<{ loans: any[]; transactions: any[]; stats: Record<string, { paidTotal: number; pendingAmount: number }> }>(
       `/finance/loans/${employeeId}/data`

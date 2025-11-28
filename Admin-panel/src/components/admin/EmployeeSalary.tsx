@@ -55,6 +55,7 @@ export function EmployeeSalary() {
   const [pendingLoanTotal, setPendingLoanTotal] = useState(0);
   const [waivedLoans, setWaivedLoans] = useState<string[]>([]);
   const [exportUrl, setExportUrl] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'summary' | 'detailed'>('summary');
 
   useEffect(() => {
     fetchEmployees();
@@ -126,6 +127,9 @@ export function EmployeeSalary() {
           // For each active loan, if there are transactions recorded for the selected month/year, use their sum for that month; otherwise use defaultInstallment
           const emiForMonth = loans.reduce((sum: number, l: any) => {
             if (l.status !== 'active') return sum;
+            // Only consider loans that have started by the selected month/year
+            const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
+            if (!started) return sum;
             const txForLoanThisMonth = transactions.filter((t: any) => String(t.loan) === String(l._id) && Number(t.month) === month && Number(t.year) === year);
 
             // If any manual payment exists for this loan in the selected month,
@@ -144,6 +148,8 @@ export function EmployeeSalary() {
           // Track loans which have a manual payment recorded for this month so we can show an EMI-waived indicator
           const waived = loans.reduce((acc: string[], l: any) => {
             if (l.status !== 'active') return acc;
+            const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
+            if (!started) return acc;
             const txForLoanThisMonth = transactions.filter((t: any) => String(t.loan) === String(l._id) && Number(t.month) === month && Number(t.year) === year);
             const hasManual = txForLoanThisMonth.some((t: any) => (t.mode || 'salary-deduction') === 'manual-payment');
             if (hasManual) acc.push(String(l._id));
@@ -151,11 +157,32 @@ export function EmployeeSalary() {
           }, [] as string[]);
           setWaivedLoans(waived);
 
-          // Pending loan total: sum pendingAmount for active loans from stats (fallback to 0)
+          // Pending loan total (rules):
+          // - If salary-deduction exists for the month: use backend pending as-is (actual deduction).
+          // - If ONLY manual-payment exists: manual waives salary deduction; principal unchanged (leave pending as-is).
+          // - If no transactions exist: subtract one defaultInstallment (auto-deduction).
           const pendingTotal = loans.reduce((acc: number, l: any) => {
             if (l.status !== 'active') return acc;
-            const s = stats[String(l._id)]?.pendingAmount;
-            return acc + (typeof s === 'number' ? s : 0);
+            const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
+            if (!started) return acc;
+            let pending = stats[String(l._id)]?.pendingAmount;
+            if (typeof pending !== 'number') pending = 0;
+            const txForLoanThisMonth = transactions.filter((t: any) => String(t.loan) === String(l._id) && Number(t.month) === month && Number(t.year) === year);
+            const hasManual = txForLoanThisMonth.some((t: any) => (t.mode || 'salary-deduction') === 'manual-payment');
+            const salarySum = txForLoanThisMonth
+              .filter((t: any) => (t.mode || 'salary-deduction') === 'salary-deduction')
+              .reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+
+            if (salarySum > 0) {
+              // keep backend pending as-is
+            } else if (hasManual) {
+              // manual waives EMI; principal unchanged
+              pending = Math.max(0, pending);
+            } else {
+              // auto-deduction for the month
+              pending = Math.max(0, pending - (Number(l.defaultInstallment) || 0));
+            }
+            return acc + pending;
           }, 0);
           setPendingLoanTotal(pendingTotal || 0);
         } catch (e: any) {
@@ -172,6 +199,7 @@ export function EmployeeSalary() {
     } finally {
       setLoading(false);
     }
+  };
 
   // Helper that builds the HTML and filename synchronously so an anchor click can use it
   const buildExportHtmlAndFilename = () => {
@@ -199,12 +227,16 @@ export function EmployeeSalary() {
     });
     jobColumns.sort((a,b) => jobLabelMap[a].localeCompare(jobLabelMap[b]));
 
-    // Build a compact summary table: one column per job-type (no leading metric column)
+    // Build a compact summary table: job-type columns + monetary summary columns (no leading metric column)
     let table = `<table border="0" style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:13px;width:100%;">`;
     // Header row: job type columns
     table += `<thead><tr>`;
     jobColumns.forEach((k) => {
       table += `<th style="text-align:center;padding:8px;border-bottom:1px solid #ddd;">${jobLabelMap[k]}</th>`;
+    });
+    const extraHeaders = ['Basic','Upad','Pend. Loan','Loan Installment','Net Amount'];
+    extraHeaders.forEach((h) => {
+      table += `<th style=\"text-align:center;padding:8px;border-bottom:1px solid #ddd;\">${h}</th>`;
     });
     table += `</tr></thead><tbody>`;
 
@@ -214,6 +246,7 @@ export function EmployeeSalary() {
       const q = qtyTotals[k] || 0;
       table += `<td style="text-align:center;padding:8px;font-weight:600;">${q ? q.toFixed(3) : ''}</td>`;
     });
+    extraHeaders.forEach(() => { table += `<td style=\"text-align:center;padding:8px;\"></td>`; });
     table += `</tr>`;
 
     // Rate row
@@ -222,6 +255,7 @@ export function EmployeeSalary() {
       const r = rateByJob[k] || 0;
       table += `<td style="text-align:center;padding:8px;">${r ? `₹${r.toFixed(2)}` : ''}</td>`;
     });
+    extraHeaders.forEach(() => { table += `<td style=\"text-align:center;padding:8px;\"></td>`; });
     table += `</tr>`;
 
     // Amount row (qty * rate)
@@ -234,11 +268,21 @@ export function EmployeeSalary() {
       grandAmount += amt;
       table += `<td style="text-align:center;padding:8px;">${amt ? `₹${amt.toFixed(2)}` : ''}</td>`;
     });
+    const basic = salaryData.monthTotal || 0;
+    const upad = (typeof (window as any) !== 'undefined' ? (typeof (upadTotal) === 'number' ? upadTotal : 0) : 0);
+    const loanInstallment = (typeof (window as any) !== 'undefined' ? (typeof (loanInstallmentTotal) === 'number' ? loanInstallmentTotal : 0) : 0);
+    const pendingLoan = (typeof (window as any) !== 'undefined' ? (typeof (pendingLoanTotal) === 'number' ? pendingLoanTotal : 0) : 0);
+    const netAmount = basic - upad - loanInstallment;
+    table += `<td style=\"text-align:center;padding:8px;\">₹${basic.toFixed(2)}</td>`;
+    table += `<td style=\"text-align:center;padding:8px;\">₹${upad.toFixed(2)}</td>`;
+    table += `<td style=\"text-align:center;padding:8px;\">₹${pendingLoan.toFixed(2)}</td>`;
+    table += `<td style=\"text-align:center;padding:8px;\">₹${loanInstallment.toFixed(2)}</td>`;
+    table += `<td style=\"text-align:center;padding:8px;font-weight:700;\">₹${netAmount.toFixed(2)}</td>`;
     table += `</tr>`;
 
     table += `</tbody></table>`;
 
-    const html = `<html><head><meta charset="UTF-8"></head><body><h2>Salary Summary - ${salaryData.employeeName}</h2><div style="color:#666;margin-bottom:8px;">${periodLabel}</div>${table}<div style="margin-top:12px;font-weight:600;">Net Amount: ₹${grandAmount.toFixed(2)}</div></body></html>`;
+    const html = `<html><head><meta charset="UTF-8"></head><body><h2>Salary Summary - ${salaryData.employeeName}</h2><div style="color:#666;margin-bottom:8px;">${periodLabel}</div>${table}</body></html>`;
 
     // Prepend BOM to help Excel detect UTF-8 and render rupee symbol correctly
     const bom = '\uFEFF';
@@ -391,7 +435,23 @@ export function EmployeeSalary() {
                   {getMonthName(salaryData.month)} {salaryData.year}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                <div className="flex rounded-md border border-border overflow-hidden">
+                  <button
+                    type="button"
+                    className={`px-3 py-2 text-sm ${viewMode === 'summary' ? 'bg-primary/10 text-foreground' : 'bg-background text-muted-foreground'}`}
+                    onClick={() => setViewMode('summary')}
+                  >
+                    Summary
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-3 py-2 text-sm ${viewMode === 'detailed' ? 'bg-primary/10 text-foreground' : 'bg-background text-muted-foreground'}`}
+                    onClick={() => setViewMode('detailed')}
+                  >
+                    Detailed
+                  </button>
+                </div>
                 <a
                   onClick={handleAnchorExcelClick}
                   className="inline-flex items-center px-3 py-2 border border-border rounded-md text-sm text-foreground bg-background hover:bg-accent/5 transition-colors"
@@ -404,7 +464,6 @@ export function EmployeeSalary() {
             </div>
           </CardHeader>
           <CardContent>
-            
             {salaryData.dailyLogs.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 No work logs found for selected period
@@ -428,23 +487,6 @@ export function EmployeeSalary() {
 
                   jobColumns.sort((a, b) => jobLabelMap[a].localeCompare(jobLabelMap[b]));
 
-                  const rows = salaryData.dailyLogs.map((day) => {
-                    const dateObj = new Date(day.date);
-                    const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}`;
-
-                    const qtyByJob: Record<string, number> = {};
-                    day.logs.forEach((log) => {
-                      const key = `${log.jobName}|${log.partType}`;
-                      qtyByJob[key] = (qtyByJob[key] || 0) + log.okParts;
-                    });
-
-                    return {
-                      date: formattedDate,
-                      qtyByJob,
-                      dayTotal: day.dayTotal
-                    };
-                  });
-
                   const qtyTotals: Record<string, number> = {};
                   const rateByJob: Record<string, number> = {};
                   const amountByJob: Record<string, number> = {};
@@ -463,9 +505,82 @@ export function EmployeeSalary() {
                   const pendingLoan = pendingLoanTotal;
                   const loanInstallment = loanInstallmentTotal;
                   const netAmount = basic - upad - loanInstallment;
+                  // Grand amount across all job columns for the month (for Day Total column in totals row)
+                  const grandAmount = Object.values(amountByJob).reduce((s, v) => s + (v || 0), 0);
+
+                  if (viewMode === 'summary') {
+                    // Summary layout: columns are job types; rows are Qty, Rate, Amount; footer shows salary summary
+                    const grandAmount = Object.values(amountByJob).reduce((s, v) => s + (v || 0), 0);
+                    const extraHeaders = ['Basic', 'Upad', 'Pend. Loan', 'Loan Installment', 'Net Amount'];
+                    return (
+                      <div key="salary-summary" className="border border-border rounded-lg p-4">
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                {jobColumns.map((key) => (
+                                  <TableHead key={key} className="text-center">
+                                    {jobLabelMap[key]}
+                                  </TableHead>
+                                ))}
+                                {extraHeaders.map((h) => (
+                                  <TableHead key={h} className="text-center">{h}</TableHead>
+                                ))}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              <TableRow className="bg-muted/50 font-semibold">
+                                {jobColumns.map((key) => (
+                                  <TableCell key={key} className="text-center">{qtyTotals[key] ? qtyTotals[key].toFixed(3) : ''}</TableCell>
+                                ))}
+                                {extraHeaders.map((h) => (<TableCell key={`qty-${h}`} className="text-center"></TableCell>))}
+                              </TableRow>
+                              <TableRow className="font-semibold">
+                                {jobColumns.map((key) => (
+                                  <TableCell key={key} className="text-center">{rateByJob[key] ? `₹${rateByJob[key].toFixed(2)}` : ''}</TableCell>
+                                ))}
+                                {extraHeaders.map((h) => (<TableCell key={`rate-${h}`} className="text-center"></TableCell>))}
+                              </TableRow>
+                              <TableRow className="font-semibold">
+                                {jobColumns.map((key) => (
+                                  <TableCell key={key} className="text-center">{amountByJob[key] ? `₹${amountByJob[key].toFixed(2)}` : ''}</TableCell>
+                                ))}
+                                {/* Monetary summary columns */}
+                                <TableCell className="text-center">₹{basic.toFixed(2)}</TableCell>
+                                <TableCell className="text-center">₹{upad.toFixed(2)}</TableCell>
+                                <TableCell className="text-center">₹{pendingLoan.toFixed(2)}</TableCell>
+                                <TableCell className="text-center">₹{loanInstallment.toFixed(2)}</TableCell>
+                                <TableCell className="text-center font-bold">₹{netAmount.toFixed(2)}</TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </div>
+                        {waivedLoans.length > 0 && (
+                          <div className="mt-2 text-sm text-emerald-700 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L9 11.586 6.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l7-7a1 1 0 000-1.414z" clipRule="evenodd" />
+                            </svg>
+                            <span>Manual payment recorded — EMI waived for {waivedLoans.length} loan{waivedLoans.length > 1 ? 's' : ''}.</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Detailed view (existing)
+                  const rows = salaryData.dailyLogs.map((day) => {
+                    const dateObj = new Date(day.date);
+                    const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}`;
+                    const qtyByJob: Record<string, number> = {};
+                    day.logs.forEach((log) => {
+                      const key = `${log.jobName}|${log.partType}`;
+                      qtyByJob[key] = (qtyByJob[key] || 0) + log.okParts;
+                    });
+                    return { date: formattedDate, qtyByJob, dayTotal: day.dayTotal };
+                  });
 
                   return (
-                    <div key="salary-layout" className="border border-border rounded-lg p-4">
+                    <div key="salary-detailed" className="border border-border rounded-lg p-4">
                       <div className="overflow-x-auto">
                         <Table>
                           <TableHeader>
@@ -477,6 +592,11 @@ export function EmployeeSalary() {
                                 </TableHead>
                               ))}
                               <TableHead className="text-center">Day Total (₹)</TableHead>
+                              <TableHead className="text-center">Basic</TableHead>
+                              <TableHead className="text-center">Upad</TableHead>
+                              <TableHead className="text-center">Pend. Loan</TableHead>
+                              <TableHead className="text-center">Loan Installment</TableHead>
+                              <TableHead className="text-center">Net Amount</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -484,85 +604,64 @@ export function EmployeeSalary() {
                               <TableRow key={idx}>
                                 <TableCell className="text-center">{row.date}</TableCell>
                                 {jobColumns.map((key) => (
-                                  <TableCell key={key} className="text-center">
-                                    {row.qtyByJob[key] ? row.qtyByJob[key].toFixed(3) : ''}
-                                  </TableCell>
+                                  <TableCell key={key} className="text-center">{row.qtyByJob[key] ? row.qtyByJob[key].toFixed(3) : ''}</TableCell>
                                 ))}
-                                <TableCell className="text-center font-semibold">
-                                  ₹{row.dayTotal.toFixed(2)}
-                                </TableCell>
+                                <TableCell className="text-center font-semibold">₹{row.dayTotal.toFixed(2)}</TableCell>
+                                {/* Monthly totals are not per-day; leave empty in daily rows */}
+                                <TableCell className="text-center"></TableCell>
+                                <TableCell className="text-center"></TableCell>
+                                <TableCell className="text-center"></TableCell>
+                                <TableCell className="text-center"></TableCell>
+                                <TableCell className="text-center"></TableCell>
                               </TableRow>
                             ))}
-
                             <TableRow className="bg-muted font-semibold">
                               <TableCell className="whitespace-nowrap text-center">Qty Work</TableCell>
                               {jobColumns.map((key) => (
-                                <TableCell key={key} className="text-center">
-                                  {qtyTotals[key] ? qtyTotals[key].toFixed(3) : ''}
-                                </TableCell>
+                                <TableCell key={key} className="text-center">{qtyTotals[key] ? qtyTotals[key].toFixed(3) : ''}</TableCell>
                               ))}
                               <TableCell />
+                              <TableCell />
+                              <TableCell />
+                              <TableCell />
+                              <TableCell />
+                              <TableCell />
                             </TableRow>
-
                             <TableRow className="font-semibold">
                               <TableCell className="whitespace-nowrap text-center">Rate</TableCell>
                               {jobColumns.map((key) => (
-                                <TableCell key={key} className="text-center">
-                                  {rateByJob[key] ? `₹${rateByJob[key].toFixed(2)}` : ''}
-                                </TableCell>
+                                <TableCell key={key} className="text-center">{rateByJob[key] ? `₹${rateByJob[key].toFixed(2)}` : ''}</TableCell>
                               ))}
                               <TableCell />
+                              <TableCell />
+                              <TableCell />
+                              <TableCell />
+                              <TableCell />
+                              <TableCell />
                             </TableRow>
-
                             <TableRow className="font-semibold">
                               <TableCell className="whitespace-nowrap text-center">Amount</TableCell>
                               {jobColumns.map((key) => (
-                                <TableCell key={key} className="text-center">
-                                  {amountByJob[key] ? `₹${amountByJob[key].toFixed(2)}` : ''}
-                                </TableCell>
+                                <TableCell key={key} className="text-center">{amountByJob[key] ? `₹${amountByJob[key].toFixed(2)}` : ''}</TableCell>
                               ))}
-                              <TableCell className="text-center font-bold">
-                                ₹{basic.toFixed(2)}
-                              </TableCell>
+                              {/* Day Total (₹) for the entire month */}
+                              <TableCell className="text-center font-bold">₹{grandAmount.toFixed(2)}</TableCell>
+                              {/* Monetary summary columns aligned with their headers */}
+                              <TableCell className="text-center">₹{basic.toFixed(2)}</TableCell>
+                              <TableCell className="text-center">₹{upad.toFixed(2)}</TableCell>
+                              <TableCell className="text-center">₹{pendingLoan.toFixed(2)}</TableCell>
+                              <TableCell className="text-center">₹{loanInstallment.toFixed(2)}</TableCell>
+                              <TableCell className="text-center font-bold">₹{netAmount.toFixed(2)}</TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
                       </div>
-
-                      <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4 border-t border-border pt-4 text-sm">
-                        <div className="md:col-span-2 space-y-1">
-                          <div className="flex justify-between">
-                            <span className="font-semibold">Basic</span>
-                            <span className="font-bold">₹{basic.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="font-semibold">Upad</span>
-                            <span>₹{upad.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="font-semibold">Pend. Loan</span>
-                            <span>₹{pendingLoan.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="font-semibold">Loan Installment</span>
-                            <span>₹{loanInstallment.toFixed(2)}</span>
-                          </div>
-                          {waivedLoans.length > 0 && (
-                            <div className="mt-2 text-sm text-emerald-700 flex items-center gap-2">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L9 11.586 6.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l7-7a1 1 0 000-1.414z" clipRule="evenodd" />
-                              </svg>
-                              <span>Manual payment recorded — EMI waived for {waivedLoans.length} loan{waivedLoans.length > 1 ? 's' : ''}.</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between border-t border-border pt-2 mt-2">
-                            <span className="font-semibold">Net Amount</span>
-                            <span className="font-bold">₹{netAmount.toFixed(2)}</span>
-                          </div>
+                      {waivedLoans.length > 0 && (
+                        <div className="mt-2 text-sm text-emerald-700 flex items-center gap-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L9 11.586 6.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l7-7a1 1 0 000-1.414z" clipRule="evenodd" /></svg>
+                          <span>Manual payment recorded — EMI waived for {waivedLoans.length} loan{waivedLoans.length > 1 ? 's' : ''}.</span>
                         </div>
-
-                        
-                      </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -575,5 +674,4 @@ export function EmployeeSalary() {
   );
 }
 
-}
 

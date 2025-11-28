@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiService } from '../../services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -55,6 +56,9 @@ export function LoanEntry() {
   });
   const [txAmount, setTxAmount] = useState<string>('');
   const [txMode, setTxMode] = useState<'salary-deduction' | 'manual-payment'>('salary-deduction');
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
+  const [editingTxAmount, setEditingTxAmount] = useState<string>('');
+  const [editingTxMode, setEditingTxMode] = useState<'salary-deduction' | 'manual-payment'>('salary-deduction');
 
   const [loadingLoan, setLoadingLoan] = useState(false);
   const [loadingTx, setLoadingTx] = useState(false);
@@ -137,7 +141,7 @@ export function LoanEntry() {
     if (!emi || emi <= 0) return toast.error('Enter valid installment amount');
     setLoadingLoan(true);
     try {
-      await apiService.createLoan({
+      const res = await apiService.createLoan({
         employeeId,
         startMonth,
         startYear,
@@ -244,6 +248,19 @@ export function LoanEntry() {
     return `${String(m).padStart(2, '0')}/${y}`;
   };
 
+  // dd/mm/yyyy formatter for createdAt dates
+  const formatDateDMY = (value?: string) => {
+    if (!value) return '—';
+    try {
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return '—';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch { return '—'; }
+  };
+
   const startEditLoan = (loan: Loan) => {
     setEditingLoanId(loan._id);
     setEditingPrincipal(String(loan.principal));
@@ -301,10 +318,37 @@ export function LoanEntry() {
   const activeLoans = loans.filter((loan) => loan.status === 'active');
   const pastLoans = loans.filter((loan) => loan.status !== 'active');
   const selectedLoan = loans.find((loan) => loan._id === selectedLoanId);
-  const pendingForSelectedLoan = loanStats[selectedLoanId]?.pendingAmount ?? (selectedLoan ? Number(selectedLoan.principal) : 0);
+  // Pending display rule aligned with EmployeeSalary (old rules):
+  // - If salary-deduction exists for the selected month, keep backend pending as-is.
+  // - If only manual-payment exists for the selected month, manual waives EMI; do NOT reduce principal (leave pending unchanged).
+  // - If no transactions for the selected month, show pending reduced by default EMI.
+  const getAdjustedPending = (loan: Loan) => {
+    const stats = loanStats[loan._id];
+    let pending = stats ? stats.pendingAmount : Number(loan.principal);
+    const [yStr, mStr] = txMonthYear.split('-');
+    const viewMonth = Number(mStr);
+    const viewYear = Number(yStr);
+    const started = (viewYear > Number(loan.startYear)) || (viewYear === Number(loan.startYear) && viewMonth >= Number(loan.startMonth));
+    if (loan.status !== 'active' || !started) return Math.max(0, pending);
+    const txForLoanThisMonth = transactions.filter((t) => String(t.loanId || t.loan) === String(loan._id) && Number(t.month) === viewMonth && Number(t.year) === viewYear);
+    const hasManual = txForLoanThisMonth.some((t) => (t.mode || 'salary-deduction') === 'manual-payment');
+    const salarySum = txForLoanThisMonth
+      .filter((t) => (t.mode || 'salary-deduction') === 'salary-deduction')
+      .reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    if (salarySum > 0) {
+      // assume backend already accounted; no correction
+    } else if (hasManual) {
+      // manual waives EMI; principal unchanged
+      pending = Math.max(0, pending);
+    } else {
+      pending = Math.max(0, pending - Number(loan.defaultInstallment || 0));
+    }
+    return Math.max(0, pending);
+  };
+
+  const pendingForSelectedLoan = selectedLoan ? getAdjustedPending(selectedLoan) : 0;
   const closeLoan = loans.find((loan) => loan._id === closeLoanId);
-  const pendingForClose = loanStats[closeLoanId]?.pendingAmount ?? (closeLoan ? Number(closeLoan.principal) : 0);
-  const getPending = (loan: Loan) => loanStats[loan._id]?.pendingAmount ?? Math.max(0, Number(loan.principal));
+  const pendingForClose = closeLoan ? getAdjustedPending(closeLoan) : 0;
 
   const handleCloseLoanWithLumpSum = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -341,342 +385,441 @@ export function LoanEntry() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Loan Entry</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div>
-            <label className="block text-sm font-medium mb-1">Employee</label>
-            <Select value={employeeId} onValueChange={setEmployeeId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select employee" />
-              </SelectTrigger>
-              <SelectContent>
-                {employees.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.name}{e.department ? ` (${e.department})` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <div className="space-y-6">
+      {/* Overview + Create Loan */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Loan Entry</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="text-sm text-muted-foreground bg-muted/30 border border-border rounded-md p-3">
+            • Default EMI auto-deducts monthly starting the loan's start month unless a transaction is recorded.<br/>
+            • A Salary deduction transaction replaces the default EMI for that month.<br/>
+            • A Manual payment transaction makes salary deduction ₹0 for that month (paid externally).<br/>
+            • Closing a loan stops future deductions.
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Start Month & Year</label>
-            <Input
-              type="month"
-              value={startMonthYear}
-              onChange={(e) => setStartMonthYear(e.target.value)}
-            />
-          </div>
-          <div className="md:col-span-1 flex flex-col gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div>
-              <label className="block text-sm font-medium mb-1">Loan Amount (₹)</label>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={principal}
-                onChange={(e) => setPrincipal(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Installment Amount (₹)</label>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={installment}
-                onChange={(e) => setInstallment(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Note (optional)</label>
-              <Input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </div>
-            <Button type="button" disabled={loadingLoan} className="mt-1 w-full" onClick={handleCreateLoan}>
-              {loadingLoan ? 'Saving...' : 'Create Loan'}
-            </Button>
-          </div>
-        </div>
-
-        {employeeId && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-semibold mb-2">Active Loans</h3>
-              {activeLoans.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No active loans for this employee.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-center">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-2 px-2">Start</th>
-                        <th className="py-2 px-2">Principal (₹)</th>
-                        <th className="py-2 px-2">Default EMI (₹)</th>
-                        <th className="py-2 px-2">Pending (₹)</th>
-                        <th className="py-2 px-2">Note</th>
-                        <th className="py-2 px-2">Status</th>
-                        <th className="py-2 px-2">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activeLoans.map((loan) => (
-                        <tr key={loan._id} className="border-b last:border-0">
-                          <td className="py-2 px-2">{formatMonthYear(loan.startMonth, loan.startYear)}</td>
-                          <td className="py-2 px-2">
-                            {editingLoanId === loan._id ? (
-                              <Input
-                                type="number"
-                                min={0}
-                                step="0.01"
-                                value={editingPrincipal}
-                                onChange={(e) => setEditingPrincipal(e.target.value)}
-                                className="h-8 text-center"
-                              />
-                            ) : (
-                              <>₹{Number(loan.principal).toFixed(2)}</>
-                            )}
-                          </td>
-                          <td className="py-2 px-2">
-                            {editingLoanId === loan._id ? (
-                              <Input
-                                type="number"
-                                min={0}
-                                step="0.01"
-                                value={editingInstallment}
-                                onChange={(e) => setEditingInstallment(e.target.value)}
-                                className="h-8 text-center"
-                              />
-                            ) : (
-                              <>₹{Number(loan.defaultInstallment).toFixed(2)}</>
-                            )}
-                          </td>
-                          <td className="py-2 px-2">₹{getPending(loan).toFixed(2)}</td>
-                          <td className="py-2 px-2">
-                            {editingLoanId === loan._id ? (
-                              <Input
-                                value={editingNote}
-                                onChange={(e) => setEditingNote(e.target.value)}
-                                className="h-8"
-                              />
-                            ) : (
-                              <>{loan.note || '-'}</>
-                            )}
-                          </td>
-                          <td className="py-2 px-2 capitalize">
-                            {editingLoanId === loan._id ? (
-                              <select
-                                className="border rounded-md h-8 px-2"
-                                value={editingStatus}
-                                onChange={(e) => setEditingStatus(e.target.value)}
-                              >
-                                <option value="active">active</option>
-                                <option value="closed">closed</option>
-                                <option value="cancelled">cancelled</option>
-                              </select>
-                            ) : (
-                              loan.status
-                            )}
-                          </td>
-                          <td className="py-2 px-2 space-x-2">
-                            {editingLoanId === loan._id ? (
-                              <>
-                                <Button size="sm" variant="outline" onClick={saveLoanEdit}>Save</Button>
-                                <Button size="sm" variant="ghost" onClick={cancelEditLoan}>Cancel</Button>
-                              </>
-                            ) : (
-                              <>
-                                <Button size="sm" variant="outline" onClick={() => startEditLoan(loan)}>Edit</Button>
-                                <Button size="sm" variant="destructive" onClick={() => deleteLoan(loan._id)}>Delete</Button>
-                              </>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-2">Past Loans</h3>
-              {pastLoans.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No past loans recorded.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-center">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-2 px-2">Start</th>
-                        <th className="py-2 px-2">Principal (₹)</th>
-                        <th className="py-2 px-2">Default EMI (₹)</th>
-                        <th className="py-2 px-2">Pending (₹)</th>
-                        <th className="py-2 px-2">Note</th>
-                        <th className="py-2 px-2">Status</th>
-                        <th className="py-2 px-2">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pastLoans.map((loan) => (
-                        <tr key={loan._id} className="border-b last:border-0">
-                          <td className="py-2 px-2">{formatMonthYear(loan.startMonth, loan.startYear)}</td>
-                          <td className="py-2 px-2">₹{Number(loan.principal).toFixed(2)}</td>
-                          <td className="py-2 px-2">₹{Number(loan.defaultInstallment).toFixed(2)}</td>
-                          <td className="py-2 px-2">₹{getPending(loan).toFixed(2)}</td>
-                          <td className="py-2 px-2">{loan.note || '-'}</td>
-                          <td className="py-2 px-2 capitalize">{loan.status}</td>
-                          <td className="py-2 px-2 space-x-2">
-                            <Button size="sm" variant="destructive" onClick={() => deleteLoan(loan._id)}>Delete</Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Recorded installments table directly beneath loans */}
-        {employeeId && (
-          <div className="mt-6">
-            <h3 className="font-semibold mb-2">Recorded Installments</h3>
-            <div className="overflow-x-auto">
-              {transactions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No installments recorded for these loans.</p>
-              ) : (
-                <table className="w-full text-sm text-center">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="py-2 px-2">Loan Start</th>
-                      <th className="py-2 px-2">Month</th>
-                      <th className="py-2 px-2">Amount (₹)</th>
-                      <th className="py-2 px-2">Type</th>
-                      <th className="py-2 px-2">Created At</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((tx) => {
-                      const txLoan = tx.loan && typeof tx.loan === 'object' ? (tx.loan as Loan) : undefined;
-                      return (
-                        <tr key={tx._id || `${tx.loanId}-${tx.month}-${tx.year}-${tx.amount}`} className="border-b last:border-0">
-                          <td className="py-2 px-2">{txLoan ? formatMonthYear(txLoan.startMonth, txLoan.startYear) : '-'}</td>
-                          <td className="py-2 px-2">{formatMonthYear(tx.month, tx.year)}</td>
-                          <td className="py-2 px-2">{tx.amount === 0 ? 'Skipped' : `₹${Number(tx.amount).toFixed(2)}`}</td>
-                          <td className="py-2 px-2 capitalize">{tx.amount === 0 ? 'skipped' : (tx.mode || 'salary-deduction')}</td>
-                          <td className="py-2 px-2">{tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : '-'}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Manual record section */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end border-t pt-4 mt-6">
-          <div className="md:col-span-6">
-            <h3 className="font-semibold mb-2">Manual record</h3>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Loan</label>
-            <Select value={selectedLoanId} onValueChange={setSelectedLoanId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select loan" />
-              </SelectTrigger>
-              <SelectContent>
-                {loans.map((l) => (
-                  <SelectItem key={l._id} value={l._id}>
-                    {formatMonthYear(l.startMonth, l.startYear)} • ₹{Number(l.defaultInstallment).toFixed(2)} EMI
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Installment Month & Year</label>
-            <Input type="month" value={txMonthYear} onChange={(e) => setTxMonthYear(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Amount (₹)</label>
-            <Input type="number" min={0} step="0.01" value={txAmount} onChange={(e) => setTxAmount(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Recorded As</label>
-            <Select value={txMode} onValueChange={(value) => setTxMode(value as 'salary-deduction' | 'manual-payment')}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="salary-deduction">Salary deduction</SelectItem>
-                <SelectItem value="manual-payment">Manual payment</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Button type="button" disabled={loadingTx} onClick={handleCreateTx}>
-              {loadingTx ? 'Saving...' : 'Record Installment'}
-            </Button>
-            <Button type="button" variant="outline" disabled={loadingTx} onClick={handleSkipInstallment}>
-              Mark as Skipped
-            </Button>
-          </div>
-          {selectedLoanId && (
-            <div className="md:col-span-6 text-sm text-muted-foreground">
-              Pending balance: ₹{pendingForSelectedLoan.toFixed(2)}
-            </div>
-          )}
-        </div>
-
-        {/* Lump sum payoff */}
-        {activeLoans.length > 0 && (
-          <form className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end border-t pt-4" onSubmit={handleCloseLoanWithLumpSum}>
-            <div className="md:col-span-5">
-              <h3 className="font-semibold mb-2">Close loan with lump sum</h3>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Loan</label>
-              <Select value={closeLoanId} onValueChange={setCloseLoanId}>
+              <label className="block text-sm font-medium mb-1">Employee</label>
+              <Select value={employeeId} onValueChange={setEmployeeId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select active loan" />
+                  <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeLoans.map((l) => (
-                    <SelectItem key={l._id} value={l._id}>
-                      {formatMonthYear(l.startMonth, l.startYear)} • Pending {loanStats[l._id] ? `₹${loanStats[l._id].pendingAmount.toFixed(2)}` : '₹0.00'}
+                  {employees.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name}{e.department ? ` (${e.department})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Payoff Month & Year</label>
-              <Input type="month" value={closeMonthYear} onChange={(e) => setCloseMonthYear(e.target.value)} />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Outstanding Amount (₹)</label>
+              <label className="block text-sm font-medium mb-1">Start Month & Year</label>
               <Input
-                value={closeLoanId ? pendingForClose.toFixed(2) : '0.00'}
-                readOnly
+                type="month"
+                value={startMonthYear}
+                onChange={(e) => setStartMonthYear(e.target.value)}
               />
             </div>
-            <div>
-              <Button type="submit" disabled={closingLoanLoading || !closeLoanId || pendingForClose <= 0}>
-                {closingLoanLoading ? 'Processing...' : 'Record payoff'}
+            <div className="md:col-span-1 flex flex-col gap-2">
+              <div>
+                <label className="block text-sm font-medium mb-1">Loan Amount (₹)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={principal}
+                  onChange={(e) => setPrincipal(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Installment Amount (₹)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={installment}
+                  onChange={(e) => setInstallment(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Note (optional)</label>
+                <Input
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </div>
+              <Button type="button" disabled={loadingLoan} className="mt-1 w-full" onClick={handleCreateLoan}>
+                {loadingLoan ? 'Saving...' : 'Create Loan'}
               </Button>
             </div>
-          </form>
-        )}
-      </CardContent>
-    </Card>
+          </div>
+        </CardContent>
+      </Card>
+
+      {employeeId && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Active Loans</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {activeLoans.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active loans for this employee.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-center">Start (MM/YYYY)</TableHead>
+                      <TableHead className="text-center">Principal (₹)</TableHead>
+                      <TableHead className="text-center">Default EMI (₹)</TableHead>
+                      <TableHead className="text-center">Pending (₹)</TableHead>
+                      <TableHead className="text-center">Note</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                      <TableHead className="text-center">Created</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activeLoans.map((loan) => (
+                      <TableRow key={loan._id}>
+                        <TableCell className="text-center">{formatMonthYear(loan.startMonth, loan.startYear)}</TableCell>
+                        <TableCell className="text-center">
+                          {editingLoanId === loan._id ? (
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={editingPrincipal}
+                              onChange={(e) => setEditingPrincipal(e.target.value)}
+                              className="h-8 text-center"
+                            />
+                          ) : (
+                            <>₹{Number(loan.principal).toFixed(2)}</>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {editingLoanId === loan._id ? (
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={editingInstallment}
+                              onChange={(e) => setEditingInstallment(e.target.value)}
+                              className="h-8 text-center"
+                            />
+                          ) : (
+                            <>₹{Number(loan.defaultInstallment).toFixed(2)}</>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">₹{getAdjustedPending(loan).toFixed(2)}</TableCell>
+                        <TableCell className="text-center">
+                          {editingLoanId === loan._id ? (
+                            <Input
+                              value={editingNote}
+                              onChange={(e) => setEditingNote(e.target.value)}
+                              className="h-8"
+                            />
+                          ) : (
+                            <>{loan.note || '-'}</>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center capitalize">
+                          {editingLoanId === loan._id ? (
+                            <select
+                              className="border rounded-md h-8 px-2"
+                              value={editingStatus}
+                              onChange={(e) => setEditingStatus(e.target.value)}
+                            >
+                              <option value="active">active</option>
+                              <option value="closed">closed</option>
+                              <option value="cancelled">cancelled</option>
+                            </select>
+                          ) : (
+                            loan.status
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">{formatDateDMY(loan.createdAt)}</TableCell>
+                        <TableCell className="text-center space-x-2">
+                          {editingLoanId === loan._id ? (
+                            <>
+                              <Button size="sm" variant="outline" onClick={saveLoanEdit}>Save</Button>
+                              <Button size="sm" variant="ghost" onClick={cancelEditLoan}>Cancel</Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button size="sm" variant="outline" onClick={() => startEditLoan(loan)}>Edit</Button>
+                              <Button size="sm" variant="destructive" onClick={() => deleteLoan(loan._id)}>Delete</Button>
+                            </>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {employeeId && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Past Loans</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pastLoans.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No past loans recorded.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-center">Start (MM/YYYY)</TableHead>
+                      <TableHead className="text-center">Principal (₹)</TableHead>
+                      <TableHead className="text-center">Default EMI (₹)</TableHead>
+                      <TableHead className="text-center">Pending (₹)</TableHead>
+                      <TableHead className="text-center">Note</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                      <TableHead className="text-center">Created</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pastLoans.map((loan) => (
+                      <TableRow key={loan._id}>
+                        <TableCell className="text-center">{formatMonthYear(loan.startMonth, loan.startYear)}</TableCell>
+                        <TableCell className="text-center">₹{Number(loan.principal).toFixed(2)}</TableCell>
+                        <TableCell className="text-center">₹{Number(loan.defaultInstallment).toFixed(2)}</TableCell>
+                        <TableCell className="text-center">₹{getAdjustedPending(loan).toFixed(2)}</TableCell>
+                        <TableCell className="text-center">{loan.note || '-'}</TableCell>
+                        <TableCell className="text-center capitalize">{loan.status}</TableCell>
+                        <TableCell className="text-center">{formatDateDMY(loan.createdAt)}</TableCell>
+                        <TableCell className="text-center space-x-2">
+                          <Button size="sm" variant="destructive" onClick={() => deleteLoan(loan._id)}>Delete</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {employeeId && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Recorded Installments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              {transactions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No installments recorded for these loans.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-center">Loan Start</TableHead>
+                      <TableHead className="text-center">Month</TableHead>
+                      <TableHead className="text-center">Amount (₹)</TableHead>
+                      <TableHead className="text-center">Type</TableHead>
+                      <TableHead className="text-center">Created At</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transactions.map((tx) => {
+                      const txLoan = tx.loan && typeof tx.loan === 'object' ? (tx.loan as Loan) : undefined;
+                      return (
+                        <TableRow key={tx._id || `${tx.loanId}-${tx.month}-${tx.year}-${tx.amount}`}>
+                          <TableCell className="text-center">{txLoan ? formatMonthYear(txLoan.startMonth, txLoan.startYear) : '-'}</TableCell>
+                          <TableCell className="text-center">{formatMonthYear(tx.month, tx.year)}</TableCell>
+                          <TableCell className="text-center">
+                            {editingTxId === tx._id ? (
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={editingTxAmount}
+                                onChange={(e) => setEditingTxAmount(e.target.value)}
+                                className="h-8 text-center"
+                              />
+                            ) : (
+                              tx.amount === 0 ? 'Skipped' : `₹${Number(tx.amount).toFixed(2)}`
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center capitalize">
+                            {editingTxId === tx._id ? (
+                              <select
+                                className="border rounded-md h-8 px-2"
+                                value={editingTxMode}
+                                onChange={(e) => setEditingTxMode(e.target.value as any)}
+                              >
+                                <option value="salary-deduction">salary-deduction</option>
+                                <option value="manual-payment">manual-payment</option>
+                              </select>
+                            ) : (
+                              tx.amount === 0 ? 'skipped' : (tx.mode || 'salary-deduction')
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">{formatDateDMY(tx.createdAt)}</TableCell>
+                          <TableCell className="text-center space-x-2">
+                            {tx._id ? (
+                              editingTxId === tx._id ? (
+                                <>
+                                  <Button size="sm" variant="outline" onClick={async () => {
+                                    const amt = Number(editingTxAmount);
+                                    if (!Number.isFinite(amt) || amt < 0) return toast.error('Enter valid amount');
+                                    if (amt === 0 && editingTxMode === 'salary-deduction') return toast.error('Use manual-payment for skipped EMI');
+                                    try {
+                                      await apiService.updateLoanTransaction(tx._id!, { amount: amt, mode: editingTxMode });
+                                      toast.success('Installment updated');
+                                      setEditingTxId(null);
+                                      await loadLoans();
+                                    } catch (e: any) {
+                                      console.error('Update tx error', e);
+                                      toast.error(e?.message || 'Failed to update installment');
+                                    }
+                                  }}>Save</Button>
+                                  <Button size="sm" variant="ghost" onClick={() => setEditingTxId(null)}>Cancel</Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button size="sm" variant="outline" onClick={() => {
+                                    setEditingTxId(tx._id!);
+                                    setEditingTxAmount(String(tx.amount));
+                                    setEditingTxMode((tx.mode as any) || 'salary-deduction');
+                                  }}>Edit</Button>
+                                  <Button size="sm" variant="destructive" onClick={async () => {
+                                    if (!window.confirm('Delete this installment?')) return;
+                                    try {
+                                      await apiService.deleteLoanTransaction(tx._id!);
+                                      toast.success('Installment deleted');
+                                      await loadLoans();
+                                    } catch (e: any) {
+                                      console.error('Delete tx error', e);
+                                      toast.error(e?.message || 'Failed to delete installment');
+                                    }
+                                  }}>Delete</Button>
+                                </>
+                              )
+                            ) : null}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Manual Record</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+            <div>
+              <label className="block text-sm font-medium mb-1">Loan</label>
+              <Select value={selectedLoanId} onValueChange={setSelectedLoanId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select loan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {loans.map((l) => (
+                    <SelectItem key={l._id} value={l._id}>
+                      {formatMonthYear(l.startMonth, l.startYear)} • ₹{Number(l.defaultInstallment).toFixed(2)} EMI
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Installment Month & Year</label>
+              <Input type="month" value={txMonthYear} onChange={(e) => setTxMonthYear(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Amount (₹)</label>
+              <Input type="number" min={0} step="0.01" value={txAmount} onChange={(e) => setTxAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Recorded As</label>
+              <Select value={txMode} onValueChange={(value) => setTxMode(value as 'salary-deduction' | 'manual-payment')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="salary-deduction">Salary deduction</SelectItem>
+                  <SelectItem value="manual-payment">Manual payment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button type="button" disabled={loadingTx} onClick={handleCreateTx}>
+                {loadingTx ? 'Saving...' : 'Record Installment'}
+              </Button>
+              <Button type="button" variant="outline" disabled={loadingTx} onClick={handleSkipInstallment}>
+                Mark as Skipped
+              </Button>
+            </div>
+            {selectedLoanId && (
+              <div className="md:col-span-6 text-sm text-muted-foreground">
+                Pending balance: ₹{pendingForSelectedLoan.toFixed(2)}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {activeLoans.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Close Loan (Lump Sum)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end" onSubmit={handleCloseLoanWithLumpSum}>
+              <div>
+                <label className="block text-sm font-medium mb-1">Loan</label>
+                <Select value={closeLoanId} onValueChange={setCloseLoanId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select active loan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeLoans.map((l) => (
+                      <SelectItem key={l._id} value={l._id}>
+                        {formatMonthYear(l.startMonth, l.startYear)} • Pending {loanStats[l._id] ? `₹${loanStats[l._id].pendingAmount.toFixed(2)}` : '₹0.00'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Payoff Month & Year</label>
+                <Input type="month" value={closeMonthYear} onChange={(e) => setCloseMonthYear(e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Outstanding Amount (₹)</label>
+                <Input
+                  value={closeLoanId ? pendingForClose.toFixed(2) : '0.00'}
+                  readOnly
+                />
+              </div>
+              <div>
+                <Button type="submit" disabled={closingLoanLoading || !closeLoanId || pendingForClose <= 0}>
+                  {closingLoanLoading ? 'Processing...' : 'Record payoff'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

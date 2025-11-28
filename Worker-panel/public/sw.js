@@ -1,4 +1,4 @@
-const CACHE_NAME = 'forge-worker-v1';
+const CACHE_NAME = 'forge-worker-v2';
 const CORE_ASSETS = [
   '/',
   '/index.html'
@@ -23,6 +23,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+  // Avoid caching API requests (Netlify functions or backend APIs)
+  const url = new URL(request.url);
+  const isApi = url.pathname.startsWith('/.netlify/functions') || url.pathname.startsWith('/api');
+  if (isApi) return;
   event.respondWith(
     caches.match(request).then(cached => {
       if (cached) return cached;
@@ -35,4 +39,14 @@ self.addEventListener('fetch', (event) => {
       });
     })
   );
+});
+
+// Navigation fallback for SPA routes on Netlify
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() => caches.match('/index.html'))
+    );
+  }
 });
