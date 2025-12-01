@@ -764,6 +764,15 @@ export function ViewLogs() {
                   onChange={(e) => setEditing(prev => ({ ...prev, log: { ...prev.log, partSize: e.target.value } }))}
                 />
               </div>
+              <div>
+                <label className="text-sm font-medium">Sp. Size</label>
+                <input
+                  type="text"
+                  className="border rounded-md h-10 px-3 w-full"
+                  defaultValue={editing.log.specialSize || ''}
+                  onChange={(e) => setEditing(prev => ({ ...prev, log: { ...prev.log, specialSize: e.target.value } }))}
+                />
+              </div>
               <div className="md:col-span-2">
                 <label className="text-sm font-medium">Job Type (operation)</label>
                 {(() => {
@@ -811,6 +820,7 @@ export function ViewLogs() {
                     totalParts: editing.log.totalParts,
                     rejection: editing.log.rejection ?? 0,
                     partSize: editing.log.partSize,
+                    specialSize: editing.log.specialSize ?? undefined,
                     operation: editing.log.operation ?? null,
                   });
                   toast.success('Work log updated');
