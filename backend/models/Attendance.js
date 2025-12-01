@@ -5,7 +5,7 @@ const attendanceSchema = new mongoose.Schema({
   date: { type: String, required: true }, // YYYY-MM-DD
   present: { type: Boolean, default: true },
   note: { type: String },
-}, { timestamps: true });
+}, { timestamps: true, optimisticConcurrency: true });
 
 attendanceSchema.index({ employeeId: 1, date: 1 }, { unique: true });
 

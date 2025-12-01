@@ -9,10 +9,12 @@ const loanTransactionSchema = new mongoose.Schema(
     amount: { type: Number, required: true },
     mode: { type: String, enum: ['salary-deduction', 'manual-payment'], default: 'salary-deduction' },
   },
-  { timestamps: true }
+  { timestamps: true, optimisticConcurrency: true }
 );
 
+// Prevent duplicate salary-deduction transactions for the same loan & month
+loanTransactionSchema.index({ loan: 1, year: 1, month: 1, mode: 1 }, { unique: true, partialFilterExpression: { mode: 'salary-deduction' } });
+// Support queries by employee/month (non-unique)
 loanTransactionSchema.index({ employee: 1, year: 1, month: 1 });
-loanTransactionSchema.index({ loan: 1, year: 1, month: 1 });
 
 module.exports = mongoose.model('LoanTransaction', loanTransactionSchema);

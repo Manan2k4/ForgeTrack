@@ -44,7 +44,15 @@ router.post('/', adminAuth, async (req, res) => {
 router.put('/:id', adminAuth, async (req, res) => {
   try {
     const { date, hours, rate } = req.body;
-    const ot = await Overtime.findByIdAndUpdate(req.params.id, { $set: { date, hours, rate } }, { new: true });
+    const setUpdate = {};
+    if (date) setUpdate.date = date;
+    if (hours != null) setUpdate.hours = hours;
+    if (rate != null) setUpdate.rate = rate;
+    const ot = await Overtime.findByIdAndUpdate(
+      req.params.id,
+      { $set: setUpdate, $inc: { __v: 1 } },
+      { new: true }
+    );
     if (!ot) return res.status(404).json({ success: false, message: 'Overtime not found' });
     res.json({ success: true, data: ot });
   } catch (err) {

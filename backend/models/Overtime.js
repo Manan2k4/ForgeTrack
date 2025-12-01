@@ -5,7 +5,7 @@ const overtimeSchema = new mongoose.Schema({
   date: { type: String, required: true }, // YYYY-MM-DD
   hours: { type: Number, required: true },
   rate: { type: Number },
-}, { timestamps: true });
+}, { timestamps: true, optimisticConcurrency: true });
 
 overtimeSchema.index({ employeeId: 1, date: 1 });
 

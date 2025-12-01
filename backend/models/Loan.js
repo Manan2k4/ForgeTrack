@@ -10,7 +10,7 @@ const loanSchema = new mongoose.Schema(
     note: { type: String, trim: true },
     status: { type: String, enum: ['active', 'closed', 'cancelled'], default: 'active' },
   },
-  { timestamps: true }
+  { timestamps: true, optimisticConcurrency: true }
 );
 
 loanSchema.index({ employee: 1, status: 1 });

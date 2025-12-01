@@ -61,7 +61,7 @@ router.put('/upad/:id', adminAuth, async (req, res) => {
     if (typeof amount === 'number') update.amount = amount;
     if (note !== undefined) update.note = note;
 
-    const entry = await UpadEntry.findByIdAndUpdate(id, update, { new: true });
+    const entry = await UpadEntry.findByIdAndUpdate(id, { $set: update, $inc: { __v: 1 } }, { new: true });
     if (!entry) {
       return res.status(404).json({ success: false, message: 'Upad entry not found' });
     }
@@ -144,7 +144,7 @@ router.put('/loans/:id', adminAuth, async (req, res) => {
     if (note !== undefined) update.note = note;
     if (status) update.status = status;
 
-    const loan = await Loan.findByIdAndUpdate(id, update, { new: true });
+    const loan = await Loan.findByIdAndUpdate(id, { $set: update, $inc: { __v: 1 } }, { new: true });
     if (!loan) {
       return res.status(404).json({ success: false, message: 'Loan not found' });
     }
@@ -247,7 +247,7 @@ router.put('/loans/transactions/:id', adminAuth, async (req, res) => {
     if (typeof amount === 'number') update.amount = Number(amount);
     if (mode) update.mode = mode;
 
-    const tx = await LoanTransaction.findByIdAndUpdate(id, update, { new: true });
+    const tx = await LoanTransaction.findByIdAndUpdate(id, { $set: update, $inc: { __v: 1 } }, { new: true });
     if (!tx) return res.status(404).json({ success: false, message: 'Transaction not found' });
 
     // Recalculate loan status after update

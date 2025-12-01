@@ -8,9 +8,12 @@ const upadEntrySchema = new mongoose.Schema(
     amount: { type: Number, required: true, min: 0 },
     note: { type: String, trim: true },
   },
-  { timestamps: true }
+  { timestamps: true, optimisticConcurrency: true }
 );
 
-upadEntrySchema.index({ employee: 1, year: 1, month: 1, createdAt: 1 });
+// Enforce single Upad entry per employee per month to avoid duplicates
+upadEntrySchema.index({ employee: 1, year: 1, month: 1 }, { unique: true });
+// Secondary index for sorting by creation time
+upadEntrySchema.index({ employee: 1, createdAt: -1 });
 
 module.exports = mongoose.model('UpadEntry', upadEntrySchema);
