@@ -40,6 +40,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
         <div className="p-6">
           <div className="text-red-600 font-medium mb-2">Something went wrong while rendering this page.</div>
           <div className="text-sm text-muted-foreground mb-3">Please try a different tab or refresh the page.</div>
+          {this.state.error?.message && (
+            <div className="text-xs text-muted-foreground mb-3">Error: {String(this.state.error.message)}</div>
+          )}
           <button
             type="button"
             onClick={() => this.setState({ hasError: false, error: undefined })}

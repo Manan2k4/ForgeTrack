@@ -24,6 +24,9 @@ router.get('/employees', adminAuth, async (req, res) => {
       role: e.role,
       createdAt: e.createdAt,
       isActive: e.isActive,
+      employmentType: e.employmentType,
+      salaryPerDay: typeof e.salaryPerDay === 'number' ? e.salaryPerDay : undefined,
+      dailyRojRate: typeof e.dailyRojRate === 'number' ? e.dailyRojRate : undefined,
     }));
 
     res.json({
@@ -68,7 +71,7 @@ router.get('/employees/:id/password', adminAuth, async (req, res) => {
 // Create new employee (admin only)
 router.post('/employees', adminAuth, async (req, res) => {
   try {
-    const { name, username, password, contact, address, department } = req.body;
+    const { name, username, password, contact, address, department, employmentType, salaryPerDay, dailyRojRate } = req.body;
 
     // Validation
     if (!name || !username || !password || !contact || !address || !department) {
@@ -95,7 +98,10 @@ router.post('/employees', adminAuth, async (req, res) => {
       contact,
       address,
       department,
-      role: 'employee'
+      role: 'employee',
+      employmentType: ['Contract','Monthly','Daily Roj'].includes(employmentType) ? employmentType : 'Contract',
+      salaryPerDay: typeof salaryPerDay === 'number' ? salaryPerDay : undefined,
+      dailyRojRate: typeof dailyRojRate === 'number' ? dailyRojRate : undefined,
     });
 
     await employee.save();
@@ -180,7 +186,7 @@ module.exports = router;
 router.put('/employees/:id', adminAuth, async (req, res) => {
   try {
     const employeeId = req.params.id;
-    const { name, username, password, contact, address, department } = req.body;
+    const { name, username, password, contact, address, department, employmentType, salaryPerDay, dailyRojRate } = req.body;
 
     const employee = await User.findById(employeeId);
     if (!employee || employee.role !== 'employee') {
@@ -200,6 +206,15 @@ router.put('/employees/:id', adminAuth, async (req, res) => {
     if (contact) employee.contact = contact;
     if (address) employee.address = address;
     if (department) employee.department = department;
+    if (employmentType && ['Contract','Monthly','Daily Roj'].includes(employmentType)) {
+      employee.employmentType = employmentType;
+    }
+    if (typeof salaryPerDay === 'number') {
+      employee.salaryPerDay = salaryPerDay;
+    }
+    if (typeof dailyRojRate === 'number') {
+      employee.dailyRojRate = dailyRojRate;
+    }
 
     // If password provided, set and let pre('save') hash it
     if (password && password.trim().length >= 6) {

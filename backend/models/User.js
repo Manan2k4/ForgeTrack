@@ -58,6 +58,21 @@ const userSchema = new mongoose.Schema({
     },
     enum: ['Sleeve Workshop', 'Rod/Pin Workshop', 'Packing', 'Transporter']
   },
+  // Employment classification for salary calculations
+  employmentType: {
+    type: String,
+    enum: ['Contract', 'Monthly', 'Daily Roj'],
+    default: 'Contract'
+  },
+  // Monetary fields (optional, only meaningful for Monthly / Daily Roj types)
+  salaryPerDay: {
+    type: Number,
+    min: [0, 'salaryPerDay cannot be negative'],
+  },
+  dailyRojRate: {
+    type: Number,
+    min: [0, 'dailyRojRate cannot be negative'],
+  },
   // Soft-delete flag to retain historical work logs after deactivation
   isActive: {
     type: Boolean,

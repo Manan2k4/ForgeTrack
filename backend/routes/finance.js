@@ -235,6 +235,82 @@ router.get('/loans/:loanId/transactions', adminAuth, async (req, res) => {
   }
 });
 
+// Update a loan transaction
+router.put('/loans/transactions/:id', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { month, year, amount, mode } = req.body;
+
+    const update = {};
+    if (month) update.month = Number(month);
+    if (year) update.year = Number(year);
+    if (typeof amount === 'number') update.amount = Number(amount);
+    if (mode) update.mode = mode;
+
+    const tx = await LoanTransaction.findByIdAndUpdate(id, update, { new: true });
+    if (!tx) return res.status(404).json({ success: false, message: 'Transaction not found' });
+
+    // Recalculate loan status after update
+    const loan = await Loan.findById(tx.loan);
+    if (loan) {
+      const allTxForLoan = await LoanTransaction.find({ loan: loan._id });
+      const totalPaid = allTxForLoan.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      const principal = Number(loan.principal) || 0;
+      const tolerance = 0.01;
+      if (principal > 0 && totalPaid >= principal - tolerance) {
+        if (loan.status !== 'closed') {
+          loan.status = 'closed';
+          await loan.save();
+        }
+      } else {
+        if (loan.status === 'closed') {
+          loan.status = 'active';
+          await loan.save();
+        }
+      }
+    }
+
+    return res.json({ success: true, data: tx });
+  } catch (error) {
+    console.error('Update Loan transaction error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update loan transaction', error: error.message });
+  }
+});
+
+// Delete a loan transaction
+router.delete('/loans/transactions/:id', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tx = await LoanTransaction.findByIdAndDelete(id);
+    if (!tx) return res.status(404).json({ success: false, message: 'Transaction not found' });
+
+    // Recalculate loan status after deletion
+    const loan = await Loan.findById(tx.loan);
+    if (loan) {
+      const allTxForLoan = await LoanTransaction.find({ loan: loan._id });
+      const totalPaid = allTxForLoan.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      const principal = Number(loan.principal) || 0;
+      const tolerance = 0.01;
+      if (principal > 0 && totalPaid >= principal - tolerance) {
+        if (loan.status !== 'closed') {
+          loan.status = 'closed';
+          await loan.save();
+        }
+      } else {
+        if (loan.status === 'closed') {
+          loan.status = 'active';
+          await loan.save();
+        }
+      }
+    }
+
+    return res.json({ success: true, message: 'Transaction deleted' });
+  } catch (error) {
+    console.error('Delete Loan transaction error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete loan transaction', error: error.message });
+  }
+});
+
 // Loan summary for an employee and month
 router.get('/loans/:employeeId/summary', adminAuth, async (req, res) => {
   try {
@@ -306,4 +382,87 @@ router.get('/loans/:employeeId/data', adminAuth, async (req, res) => {
   }
 });
 
+// Apply missing EMIs up to a target month/year for an employee
+// Creates salary-deduction transactions using each loan's defaultInstallment,
+// starting from loan.startMonth/startYear up to the provided month/year,
+// skipping months that already have a transaction for that loan.
+router.post('/loans/:employeeId/apply-missing-emis', adminAuth, async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const { month, year } = req.body;
+    if (!employeeId || !month || !year) {
+      return res.status(400).json({ success: false, message: 'employeeId, month and year are required' });
+    }
+    const targetMonth = Number(month);
+    const targetYear = Number(year);
+
+    const loans = await Loan.find({ employee: employeeId, status: { $in: ['active', 'closed'] } }).sort({ createdAt: 1 }).lean();
+    if (loans.length === 0) {
+      return res.json({ success: true, data: { created: 0, details: [] } });
+    }
+
+    const createdDetails = [];
+
+    for (const loan of loans) {
+      const startM = Number(loan.startMonth);
+      const startY = Number(loan.startYear);
+      const defaultAmt = Number(loan.defaultInstallment) || 0;
+      if (!startM || !startY || defaultAmt <= 0) continue;
+
+      // Fetch existing transactions for this loan
+      const existing = await LoanTransaction.find({ loan: loan._id }).lean();
+      const existingSet = new Set(existing.map(e => `${e.year}-${e.month}`));
+
+      // Iterate months from start to target
+      let y = startY;
+      let m = startM;
+      while (y < targetYear || (y === targetYear && m <= targetMonth)) {
+        const key = `${y}-${m}`;
+        if (!existingSet.has(key)) {
+          // Create missing EMI transaction
+          const tx = await LoanTransaction.create({
+            loan: loan._id,
+            employee: loan.employee,
+            month: m,
+            year: y,
+            amount: defaultAmt,
+            mode: 'salary-deduction',
+          });
+          createdDetails.push({ loanId: String(loan._id), month: m, year: y, amount: defaultAmt, transactionId: String(tx._id) });
+          existingSet.add(key);
+        }
+        // Advance month
+        m += 1;
+        if (m > 12) { m = 1; y += 1; }
+      }
+
+      // Recalculate and update loan status after creation
+      const allTxForLoan = await LoanTransaction.find({ loan: loan._id });
+      const totalPaid = allTxForLoan.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      const principal = Number(loan.principal) || 0;
+      const tolerance = 0.01;
+      const loanDoc = await Loan.findById(loan._id);
+      if (loanDoc) {
+        if (principal > 0 && totalPaid >= principal - tolerance) {
+          if (loanDoc.status !== 'closed') {
+            loanDoc.status = 'closed';
+            await loanDoc.save();
+          }
+        } else {
+          if (loanDoc.status === 'closed') {
+            loanDoc.status = 'active';
+            await loanDoc.save();
+          }
+        }
+      }
+    }
+
+    return res.json({ success: true, data: { created: createdDetails.length, details: createdDetails } });
+  } catch (error) {
+    console.error('Apply missing EMIs error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to apply missing EMIs', error: error.message });
+  }
+});
+
 module.exports = router;
+

@@ -38,18 +38,40 @@ class ApiService {
 
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-      const data = await response.json();
-
-      if (!response.ok) {
-        const details = [data.message, Array.isArray(data.errors) ? data.errors.join(', ') : '', data.error]
-          .filter(Boolean)
-          .join(' | ');
-        throw new Error(details || `Request failed (${response.status})`);
+      // attempt to parse JSON body, but handle empty / non-json responses gracefully
+      let data: any = {};
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch (parseErr) {
+        // non-JSON or empty body
+        data = {};
       }
 
-      return data;
+      if (!response.ok) {
+        const details = [data?.message, Array.isArray(data?.errors) ? data.errors.join(', ') : '', data?.error]
+          .filter(Boolean)
+          .join(' | ');
+        const msg = details || `Request failed (${response.status} ${response.statusText})`;
+        const err = new Error(msg);
+        try { (err as any).status = response.status; (err as any).body = data; } catch {}
+        throw err;
+      }
+
+      // Normalize returned structure: if backend returns { success:true, data:... } return as-is, else wrap
+      if (data && typeof data === 'object' && ('success' in data || 'data' in data)) {
+        return data as ApiResponse<T>;
+      }
+
+      return { success: true, data: data } as ApiResponse<T>;
     } catch (error) {
-      console.error('API request error:', error);
+      // Avoid noisy console.error for expected 404 'Route not found' responses;
+      // keep debug-level logging so developer can still inspect if needed.
+      if ((error as any)?.status === 404) {
+        console.debug('API request 404:', error);
+      } else {
+        console.error('API request error:', error);
+      }
       throw error;
     }
   }
@@ -85,6 +107,7 @@ class ApiService {
     contact: string;
     address: string;
     department: string;
+    employmentType?: 'Contract' | 'Monthly' | 'Daily Roj';
   }) {
     return this.request<any>('/users/employees', {
       method: 'POST',
@@ -123,6 +146,9 @@ class ApiService {
       contact: string;
       address: string;
       department: string;
+      employmentType: 'Contract' | 'Monthly' | 'Daily Roj';
+      salaryPerDay: number;
+      dailyRojRate: number;
     }>
   ) {
     return this.request<any>(`/users/employees/${employeeId}`, {
@@ -393,6 +419,34 @@ class ApiService {
     }>(`/salary/employee/${employeeId}?month=${month}&year=${year}`);
   }
 
+  // Attendance APIs
+  async saveAttendance(data: { employeeId: string; date: string; present: boolean; note?: string }) {
+    return this.request<any>('/attendance', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateAttendance(id: string, data: Partial<{ present: boolean; note?: string }>) {
+    return this.request<any>(`/attendance/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async deleteAttendance(id: string) {
+    return this.request<any>(`/attendance/${id}`, { method: 'DELETE' });
+  }
+
+  async listAttendance(params: { employeeId?: string; month: number; year: number }) {
+    const search = new URLSearchParams();
+    if (params.employeeId) search.set('employeeId', params.employeeId);
+    search.set('month', String(params.month));
+    search.set('year', String(params.year));
+    return this.request<any>(`/attendance?${search.toString()}`);
+  }
+
+  async attendanceSummary(params: { month: number; year: number }) {
+    const search = new URLSearchParams();
+    search.set('month', String(params.month));
+    search.set('year', String(params.year));
+    return this.request<Array<{ _id: string; presentDays: number }>>(`/attendance/summary?${search.toString()}`);
+  }
+
   // Upad APIs
   async createUpad(data: { employeeId: string; month: number; year: number; amount: number; note?: string }) {
     return this.request<any>('/finance/upad', {
@@ -486,6 +540,37 @@ class ApiService {
     return this.request<{ pendingTotal: number; installmentForMonth: number }>(
       `/finance/loans/${employeeId}/summary?month=${month}&year=${year}`
     );
+  }
+
+  // Overtime APIs
+  async listOvertime(params: { employeeId: string; month: number; year: number }) {
+    const search = new URLSearchParams();
+    search.set('employeeId', params.employeeId);
+    search.set('month', String(params.month));
+    search.set('year', String(params.year));
+    return this.request<Array<{ _id: string; employeeId: string; date: string; hours: number; rate?: number }>>(
+      `/attendance/overtime?${search.toString()}`
+    );
+  }
+
+  async createOvertime(data: { employeeId: string; date: string; hours: number; rate?: number }) {
+    return this.request<any>(`/attendance/overtime`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateOvertime(id: string, data: Partial<{ date: string; hours: number; rate: number }>) {
+    return this.request<any>(`/attendance/overtime/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteOvertime(id: string) {
+    return this.request<any>(`/attendance/overtime/${id}`, {
+      method: 'DELETE',
+    });
   }
 }
 

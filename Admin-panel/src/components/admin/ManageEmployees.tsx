@@ -22,6 +22,9 @@ interface Employee {
   role: 'employee';
   createdAt: string;
   isActive?: boolean;
+  employmentType?: 'Contract' | 'Monthly' | 'Daily Roj';
+  salaryPerDay?: number;
+  dailyRojRate?: number;
 }
 
 export function ManageEmployees() {
@@ -34,6 +37,9 @@ export function ManageEmployees() {
     contact: '',
     address: '',
     department: '',
+    employmentType: 'Contract' as 'Contract' | 'Monthly' | 'Daily Roj',
+    salaryPerDay: '' as any,
+    dailyRojRate: '' as any,
   });
   const [viewingPasswordFor, setViewingPasswordFor] = useState<Employee | null>(null);
   const [passwordPlain, setPasswordPlain] = useState<string | null>(null);
@@ -65,6 +71,9 @@ export function ManageEmployees() {
         role: 'employee' as const,
         createdAt: e.createdAt || e.created_at || new Date().toISOString(),
         isActive: e.isActive !== false,
+        employmentType: (e.employmentType as any) || 'Contract',
+        salaryPerDay: typeof e.salaryPerDay === 'number' ? e.salaryPerDay : undefined,
+        dailyRojRate: typeof e.dailyRojRate === 'number' ? e.dailyRojRate : undefined,
       }));
       setEmployees(rows);
     } catch (error: any) {
@@ -114,6 +123,9 @@ export function ManageEmployees() {
       contact: emp.contact || '',
       address: emp.address || '',
       department: emp.department || '',
+      employmentType: (emp.employmentType as any) || 'Contract',
+      salaryPerDay: (typeof emp.salaryPerDay === 'number' ? String(emp.salaryPerDay) : '' ) as any,
+      dailyRojRate: (typeof emp.dailyRojRate === 'number' ? String(emp.dailyRojRate) : '' ) as any,
     });
   };
 
@@ -148,6 +160,9 @@ export function ManageEmployees() {
     try {
       const payload: any = { ...editData };
       if (!payload.password) delete payload.password; // do not send empty password
+      // Normalize numeric fields
+      if (payload.salaryPerDay === '' || payload.salaryPerDay === undefined) delete payload.salaryPerDay; else payload.salaryPerDay = Number(payload.salaryPerDay);
+      if (payload.dailyRojRate === '' || payload.dailyRojRate === undefined) delete payload.dailyRojRate; else payload.dailyRojRate = Number(payload.dailyRojRate);
       await apiService.updateEmployee(editing.id, payload);
       toast.success('Employee updated successfully');
       setEditing(null);
@@ -316,6 +331,27 @@ export function ManageEmployees() {
                                     ))}
                                   </SelectContent>
                                 </Select>
+                              </div>
+                              <div className="space-y-1">
+                                <Label htmlFor="employmentType">Employment Type</Label>
+                                <Select value={editData.employmentType} onValueChange={(value) => setEditData({ ...editData, employmentType: value as any })}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Contract">Contract</SelectItem>
+                                    <SelectItem value="Monthly">Monthly</SelectItem>
+                                    <SelectItem value="Daily Roj">Daily Roj</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1">
+                                <Label htmlFor="salaryPerDay">Salary per day (Monthly)</Label>
+                                <Input id="salaryPerDay" type="number" min={0} step="0.01" value={editData.salaryPerDay} onChange={(e) => setEditData({ ...editData, salaryPerDay: e.target.value as any })} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label htmlFor="dailyRojRate">Daily Roj Rate</Label>
+                                <Input id="dailyRojRate" type="number" min={0} step="0.01" value={editData.dailyRojRate} onChange={(e) => setEditData({ ...editData, dailyRojRate: e.target.value as any })} />
                               </div>
                               <div className="space-y-1">
                                 <Label htmlFor="address">Address</Label>

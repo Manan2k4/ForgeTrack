@@ -31,7 +31,7 @@ interface DatabaseConfig {
 // Simplified base URL resolution: environment variable or fixed fallback.
 // Removes query-param/localStorage overrides to avoid accidental misconfiguration.
 const resolvedApiBase = (import.meta as any)?.env?.VITE_API_URL
-  || 'https://forgetrack-backend-wk3o.onrender.com/api';
+  || 'http://localhost:5000/api';
 
 const config: DatabaseConfig = {
   // Backend API URL

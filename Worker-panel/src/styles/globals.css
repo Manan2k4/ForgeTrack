@@ -1,8 +1,8 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --font-size: 16px;
-  --background: #ffffff;
+  --font-size: 17px;
+  --background: #f5f6f8; /* subtle gray to make cards pop */
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;
   --card-foreground: oklch(0.145 0 0);
@@ -126,6 +126,8 @@
 
   body {
     @apply bg-background text-foreground;
+    /* Attached swatch background */
+    background-color: #254ac4;
   }
 }
 

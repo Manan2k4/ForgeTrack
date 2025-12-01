@@ -33,7 +33,8 @@ export function AddEmployee() {
     address: '',
     username: '',
     password: '',
-    department: ''
+    department: '',
+    employmentType: 'Contract'
   });
   const [errors, setErrors] = useState<Record<string,string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,14 +67,37 @@ export function AddEmployee() {
     }
     setIsSubmitting(true);
     try {
-      await apiService.createEmployee({
+      // Attempt to pass employmentType; if backend rejects, we'll fallback to update after create
+      const payload: any = {
         name: formData.name,
         username: formData.username,
         password: formData.password,
         contact: formData.contact,
         address: formData.address,
         department: formData.department,
-      });
+        employmentType: formData.employmentType,
+      };
+      let created: any = null;
+      try {
+        created = await apiService.createEmployee(payload);
+      } catch (err) {
+        // Retry without employmentType if strict validation fails
+        created = await apiService.createEmployee({
+          name: formData.name,
+          username: formData.username,
+          password: formData.password,
+          contact: formData.contact,
+          address: formData.address,
+          department: formData.department,
+        });
+        try {
+          const list = await apiService.getEmployees({ includeInactive: true });
+          const newEmp = (list.data || []).find((e: any) => e.username === formData.username);
+          if (newEmp?.id || newEmp?._id) {
+            await apiService.updateEmployee(newEmp.id || newEmp._id, { employmentType: formData.employmentType } as any);
+          }
+        } catch {}
+      }
 
       setFormData({
         name: '',
@@ -81,7 +105,8 @@ export function AddEmployee() {
         address: '',
         username: '',
         password: '',
-        department: ''
+        department: '',
+        employmentType: 'Contract'
       });
 
       toast.success('Employee created', { description: `${formData.name} (${formData.department}) added successfully.` });
@@ -192,6 +217,20 @@ export function AddEmployee() {
                 </SelectContent>
               </Select>
               {errors.department && <p className="text-xs text-red-600">{errors.department}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="employmentType">Employment Type</Label>
+              <Select value={formData.employmentType} onValueChange={(value) => handleInputChange('employmentType', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employment type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Contract">Contract</SelectItem>
+                  <SelectItem value="Monthly">Monthly</SelectItem>
+                  <SelectItem value="Daily Roj">Daily Roj</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>

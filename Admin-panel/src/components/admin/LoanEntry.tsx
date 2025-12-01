@@ -243,6 +243,44 @@ export function LoanEntry() {
     }
   };
 
+  // Utility to iterate months inclusive
+  const monthsBetweenInclusive = (startM: number, startY: number, endM: number, endY: number): Array<{ month: number; year: number }> => {
+    const out: Array<{ month: number; year: number }> = [];
+    let y = startY; let m = startM;
+    while (y < endY || (y === endY && m <= endM)) {
+      out.push({ month: m, year: y });
+      m += 1; if (m > 12) { m = 1; y += 1; }
+    }
+    return out;
+  };
+
+  const handleApplyMissingEmisToSelectedMonth = async () => {
+    if (activeLoans.length === 0) return toast.info('No active loans');
+    const [yStr, mStr] = txMonthYear.split('-');
+    const targetM = Number(mStr);
+    const targetY = Number(yStr);
+    if (!targetM || !targetY) return toast.error('Select a valid month');
+    if (!window.confirm(`Apply missing EMIs for active loans up to ${String(targetM).padStart(2,'0')}/${targetY}?`)) return;
+    setLoadingTx(true);
+    try {
+      for (const loan of activeLoans) {
+        const months = monthsBetweenInclusive(loan.startMonth, loan.startYear, targetM, targetY);
+        for (const { month, year } of months) {
+          const hasAnyTx = transactions.some((t) => String(t.loanId || t.loan) === String(loan._id) && Number(t.month) === month && Number(t.year) === year);
+          if (hasAnyTx) continue;
+          await apiService.createLoanTransaction(loan._id, { month, year, amount: Number(loan.defaultInstallment), mode: 'salary-deduction' });
+        }
+      }
+      toast.success('Missing EMIs applied up to selected month');
+      await loadLoans();
+    } catch (e: any) {
+      console.error('Apply missing EMIs error', e);
+      toast.error(e?.message || 'Failed to apply missing EMIs');
+    } finally {
+      setLoadingTx(false);
+    }
+  };
+
   const formatMonthYear = (m: number, y: number) => {
     if (!m || !y) return '-';
     return `${String(m).padStart(2, '0')}/${y}`;
@@ -318,32 +356,59 @@ export function LoanEntry() {
   const activeLoans = loans.filter((loan) => loan.status === 'active');
   const pastLoans = loans.filter((loan) => loan.status !== 'active');
   const selectedLoan = loans.find((loan) => loan._id === selectedLoanId);
-  // Pending display rule aligned with EmployeeSalary (old rules):
-  // - If salary-deduction exists for the selected month, keep backend pending as-is.
-  // - If only manual-payment exists for the selected month, manual waives EMI; do NOT reduce principal (leave pending unchanged).
-  // - If no transactions for the selected month, show pending reduced by default EMI.
+  // Pending display rule (resilient to backend stats lag):
+  // - Base on principal, subtract salary-deduction transactions up to and including selected month.
+  // - If no transaction exists for selected month and loan has started, subtract default EMI (display-only auto deduction).
+  // - Manual payment waives EMI for that month but does not reduce principal here.
   const getAdjustedPending = (loan: Loan) => {
-    const stats = loanStats[loan._id];
-    let pending = stats ? stats.pendingAmount : Number(loan.principal);
+    let pending = Number(loan.principal);
+    const [yStr, mStr] = txMonthYear.split('-');
+    const viewMonth = Number(mStr);
+    const viewYear = Number(yStr);
+    // subtract salary-deduction payments up to selected month
+    const paidBySalary = transactions
+      .filter((t) => String(t.loanId || t.loan) === String(loan._id))
+      .filter((t) => (t.mode || 'salary-deduction') === 'salary-deduction')
+      .filter((t) => (Number(t.year) < viewYear) || (Number(t.year) === viewYear && Number(t.month) <= viewMonth))
+      .reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    pending = Math.max(0, pending - paidBySalary);
+    // current month adjustment
+    const started = (viewYear > Number(loan.startYear)) || (viewYear === Number(loan.startYear) && viewMonth >= Number(loan.startMonth));
+    if (loan.status === 'active' && started) {
+      const txForLoanThisMonth = transactions.filter((t) => String(t.loanId || t.loan) === String(loan._id) && Number(t.month) === viewMonth && Number(t.year) === viewYear);
+      const hasSalary = txForLoanThisMonth.some((t) => (t.mode || 'salary-deduction') === 'salary-deduction' && Number(t.amount) > 0);
+      const hasManual = txForLoanThisMonth.some((t) => (t.mode || 'manual-payment') === 'manual-payment');
+      if (!hasSalary && !hasManual) {
+        pending = Math.max(0, pending - Number(loan.defaultInstallment || 0));
+      }
+    }
+    return Math.max(0, pending);
+  };
+
+  const hasTxForViewMonth = (loanId: string) => {
+    const [yStr, mStr] = txMonthYear.split('-');
+    const viewMonth = Number(mStr);
+    const viewYear = Number(yStr);
+    return transactions.some((t) => String(t.loanId || t.loan) === String(loanId) && Number(t.month) === viewMonth && Number(t.year) === viewYear);
+  };
+
+  const handleApplyDefaultEmi = async (loan: Loan) => {
     const [yStr, mStr] = txMonthYear.split('-');
     const viewMonth = Number(mStr);
     const viewYear = Number(yStr);
     const started = (viewYear > Number(loan.startYear)) || (viewYear === Number(loan.startYear) && viewMonth >= Number(loan.startMonth));
-    if (loan.status !== 'active' || !started) return Math.max(0, pending);
-    const txForLoanThisMonth = transactions.filter((t) => String(t.loanId || t.loan) === String(loan._id) && Number(t.month) === viewMonth && Number(t.year) === viewYear);
-    const hasManual = txForLoanThisMonth.some((t) => (t.mode || 'salary-deduction') === 'manual-payment');
-    const salarySum = txForLoanThisMonth
-      .filter((t) => (t.mode || 'salary-deduction') === 'salary-deduction')
-      .reduce((s, t) => s + (Number(t.amount) || 0), 0);
-    if (salarySum > 0) {
-      // assume backend already accounted; no correction
-    } else if (hasManual) {
-      // manual waives EMI; principal unchanged
-      pending = Math.max(0, pending);
-    } else {
-      pending = Math.max(0, pending - Number(loan.defaultInstallment || 0));
+    if (!started) return toast.error('Selected month is before loan start');
+    setLoadingTx(true);
+    try {
+      await apiService.createLoanTransaction(loan._id, { month: viewMonth, year: viewYear, amount: Number(loan.defaultInstallment), mode: 'salary-deduction' });
+      toast.success('Default EMI applied for the selected month');
+      await loadLoans();
+    } catch (e: any) {
+      console.error('Apply default EMI error', e);
+      toast.error(e?.message || 'Failed to apply default EMI');
+    } finally {
+      setLoadingTx(false);
     }
-    return Math.max(0, pending);
   };
 
   const pendingForSelectedLoan = selectedLoan ? getAdjustedPending(selectedLoan) : 0;
@@ -461,7 +526,14 @@ export function LoanEntry() {
       {employeeId && (
         <Card>
           <CardHeader>
-            <CardTitle>Active Loans</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Active Loans</CardTitle>
+              {employeeId && (
+                <Button size="sm" variant="outline" disabled={loadingTx} onClick={handleApplyMissingEmisToSelectedMonth}>
+                  {loadingTx ? 'Applying…' : 'Apply Missing EMIs (to month)'}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {activeLoans.length === 0 ? (
@@ -551,6 +623,11 @@ export function LoanEntry() {
                             <>
                               <Button size="sm" variant="outline" onClick={() => startEditLoan(loan)}>Edit</Button>
                               <Button size="sm" variant="destructive" onClick={() => deleteLoan(loan._id)}>Delete</Button>
+                              {loan.status === 'active' && !hasTxForViewMonth(loan._id) && (
+                                <Button size="sm" className="ml-1" disabled={loadingTx} onClick={() => handleApplyDefaultEmi(loan)}>
+                                  {loadingTx ? 'Applying…' : 'Apply EMI (this month)'}
+                                </Button>
+                              )}
                             </>
                           )}
                         </TableCell>

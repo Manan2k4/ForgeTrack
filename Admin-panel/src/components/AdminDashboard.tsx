@@ -12,7 +12,12 @@ import { UpadEntry } from './admin/UpadEntry';
 import { LoanEntry } from './admin/LoanEntry';
 import { ViewLogs } from './admin/ViewLogs';
 import { TransporterLogs } from './admin/TransporterLogs';
-import { LogOut, Users, UserPlus, Package, Activity, Menu, Truck, BarChart2, Building2, Wrench, DollarSign, Receipt } from 'lucide-react';
+import { SalaryMonth } from './admin/SalaryMonth';
+import { SalaryRoj } from './admin/SalaryRoj';
+import { SalaryDetail } from './admin/SalaryDetail';
+import { OvertimeNote } from './admin/OvertimeNote';
+import { Attendance } from './admin/Attendance';
+import { LogOut, Users, UserPlus, Package, Activity, Menu, Truck, BarChart2, Building2, Wrench, DollarSign, Receipt, Clock4, ListOrdered, CalendarDays } from 'lucide-react';
 import Analytics from './admin/Analytics';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -37,6 +42,11 @@ type ActiveTab =
   | 'add-job-type'
   | 'add-rate'
   | 'employee-salary'
+  | 'salary-month'
+  | 'salary-roj'
+  | 'salary-detail'
+  | 'overtime-note'
+  | 'attendance'
   | 'upad-entry'
   | 'loan-entry'
   | 'view-logs'
@@ -64,7 +74,12 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
     { id: 'add-party' as const, label: 'Add Party', icon: Building2 }, // external parties/vendors
     { id: 'add-job-type' as const, label: 'Add Job Type', icon: Wrench }, // operations / work definitions
     { id: 'add-rate' as const, label: 'Add Rate', icon: DollarSign }, // job type rates
-    { id: 'employee-salary' as const, label: 'Employee Salary', icon: Receipt }, // salary reports
+    { id: 'employee-salary' as const, label: 'Salary (Contract)', icon: Receipt }, // salary reports
+    { id: 'salary-month' as const, label: 'Salary (Month)', icon: Receipt },
+    { id: 'salary-roj' as const, label: 'Salary (Roj)', icon: Receipt },
+    { id: 'salary-detail' as const, label: 'Salary Detail', icon: ListOrdered },
+    { id: 'overtime-note' as const, label: 'Overtime Note', icon: Clock4 },
+    { id: 'attendance' as const, label: 'Attendance', icon: CalendarDays },
     { id: 'upad-entry' as const, label: 'Upad Entry', icon: DollarSign },
     { id: 'loan-entry' as const, label: 'Loan Entry', icon: DollarSign },
     { id: 'view-logs' as const, label: 'View Logs', icon: Activity }, // internal production logs
@@ -88,6 +103,16 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
         return <AddRate />;
       case 'employee-salary':
         return <EmployeeSalary />;
+      case 'salary-month':
+        return <SalaryMonth />;
+      case 'salary-roj':
+        return <SalaryRoj />;
+      case 'salary-detail':
+        return <SalaryDetail />;
+      case 'overtime-note':
+        return <OvertimeNote />;
+      case 'attendance':
+        return <Attendance />;
       case 'upad-entry':
         return <UpadEntry />;
       case 'loan-entry':
@@ -112,11 +137,11 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
 
   const SidebarContent = () => (
     <>
-      <div className="p-4">
+      <div className="p-4 shrink-0">
         <h2 className="font-medium text-sidebar-foreground">Admin Dashboard</h2>
         <p className="text-sm text-sidebar-foreground/70">Welcome, {user.name}</p>
       </div>
-      <nav className="px-4 space-y-2 flex-1">
+      <nav className="px-4 space-y-2 flex-1 overflow-y-auto min-h-0">
         {sidebarItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -135,7 +160,7 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
           );
         })}
       </nav>
-      <div className="p-4">
+      <div className="p-4 shrink-0">
         <Button 
           onClick={onLogout}
           variant="destructive"
@@ -151,14 +176,19 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
   return (
     <div className="flex h-screen bg-background">
       {/* Desktop Sidebar */}
-      <div className="hidden lg:flex w-64 bg-sidebar border-r border-sidebar-border flex-col">
-        <SidebarContent />
+      <div className="hidden lg:flex w-64 bg-sidebar border-r border-sidebar-border flex-col overflow-hidden">
+        {/* Make sidebar content independently scrollable */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          <SidebarContent />
+        </div>
       </div>
 
       {/* Mobile Sidebar */}
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-        <SheetContent side="left" className="w-64 bg-sidebar border-sidebar-border p-0 flex flex-col">
-          <SidebarContent />
+        <SheetContent side="left" className="w-64 bg-sidebar border-sidebar-border p-0 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col">
+            <SidebarContent />
+          </div>
         </SheetContent>
       </Sheet>
 

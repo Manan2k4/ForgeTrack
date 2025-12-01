@@ -6,6 +6,7 @@ import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+import { formatToDMY } from '../../utils/date';
 
 interface Employee {
   id: string;
@@ -81,8 +82,7 @@ export function UpadEntry() {
     }
   };
 
-  const formatMonthYear = (m: number, y: number) =>
-    `${String(m).padStart(2, '0')}/${y}`;
+  const formatMonthYear = (m: number, y: number) => `${String(m).padStart(2, '0')}/${y}`;
 
   const startEdit = (entry: any) => {
     setEditingId(entry._id);
@@ -235,7 +235,7 @@ export function UpadEntry() {
                             </span>
                           )}
                         </td>
-                        <td className="py-2 px-2">{new Date(e.createdAt).toLocaleDateString()}</td>
+                        <td className="py-2 px-2">{formatToDMY(e.createdAt)}</td>
                         <td className="py-2 px-2 space-x-2">
                           {editingId === e._id ? (
                             <>

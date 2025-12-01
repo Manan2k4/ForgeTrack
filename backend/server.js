@@ -13,6 +13,8 @@ const jobTypeRoutes = require('./routes/jobTypes');
 const salaryRoutes = require('./routes/salary');
 const financeRoutes = require('./routes/finance');
 const Product = require('./models/Product');
+const attendanceRoutes = require('./routes/attendance');
+const overtimeRoutes = require('./routes/overtime');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -56,13 +58,19 @@ const corsOrigin = (origin, callback) => {
   return callback(new Error('Not allowed by CORS'));
 };
 
+// Permissive CORS in development; strict allow-list in production
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin) return callback(null, true);
+    if (process.env.NODE_ENV !== 'production' && process.env.CORS_STRICT !== 'true') {
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true
 }));
+app.options('*', cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
@@ -95,6 +103,8 @@ app.use('/api/parties', partyRoutes);
 app.use('/api/job-types', jobTypeRoutes);
 app.use('/api/salary', salaryRoutes);
 app.use('/api/finance', financeRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/attendance/overtime', overtimeRoutes);
 const exportRoutes = require('./routes/export');
 app.use('/api/export', exportRoutes);
 
