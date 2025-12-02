@@ -15,9 +15,8 @@ import { TransporterLogs } from './admin/TransporterLogs';
 import { SalaryMonth } from './admin/SalaryMonth';
 import { SalaryRoj } from './admin/SalaryRoj';
 import { SalaryDetail } from './admin/SalaryDetail';
-import { OvertimeNote } from './admin/OvertimeNote';
 import { Attendance } from './admin/Attendance';
-import { LogOut, Users, UserPlus, Package, Activity, Menu, Truck, BarChart2, Building2, Wrench, DollarSign, Receipt, Clock4, ListOrdered, CalendarDays } from 'lucide-react';
+import { LogOut, Users, UserPlus, Package, Activity, Menu, Truck, BarChart2, Building2, Wrench, DollarSign, Receipt, ListOrdered, CalendarDays } from 'lucide-react';
 import Analytics from './admin/Analytics';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -45,7 +44,6 @@ type ActiveTab =
   | 'salary-month'
   | 'salary-roj'
   | 'salary-detail'
-  | 'overtime-note'
   | 'attendance'
   | 'upad-entry'
   | 'loan-entry'
@@ -78,7 +76,6 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
     { id: 'salary-month' as const, label: 'Salary (Month)', icon: Receipt },
     { id: 'salary-roj' as const, label: 'Salary (Roj)', icon: Receipt },
     { id: 'salary-detail' as const, label: 'Salary Detail', icon: ListOrdered },
-    { id: 'overtime-note' as const, label: 'Overtime Note', icon: Clock4 },
     { id: 'attendance' as const, label: 'Attendance', icon: CalendarDays },
     { id: 'upad-entry' as const, label: 'Upad Entry', icon: DollarSign },
     { id: 'loan-entry' as const, label: 'Loan Entry', icon: DollarSign },
@@ -109,8 +106,6 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
         return <SalaryRoj />;
       case 'salary-detail':
         return <SalaryDetail />;
-      case 'overtime-note':
-        return <OvertimeNote />;
       case 'attendance':
         return <Attendance />;
       case 'upad-entry':

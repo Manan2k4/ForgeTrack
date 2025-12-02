@@ -189,7 +189,29 @@ export function SalaryRoj() {
       } catch { setLoanInstallment(0); setPendingLoan(0); }
       // Overtime is already fetched via effect on selection/month change
       if (!found) toast.info('No attendance recorded for this employee in selected month (showing 0 days)');
-      buildExport(year, month);
+      // Build export using the same numbers as the on-screen table
+      const exportPresentDays = (found?.presentDays ?? 0);
+      const exportRate = selectedEmployee?.dailyRojRate || 0;
+      const exportBasic = exportPresentDays * exportRate;
+      const exportOvertimeHours = overtimeTotalHours;
+      const exportOvertimeRate = overtimeRateDefault || exportRate / 8 || 0;
+      const exportOvertimeAmount = exportOvertimeHours * exportOvertimeRate;
+      const exportUpadTotal = upadTotal;
+      const exportLoanInstallment = loanInstallment;
+      const exportPendingLoan = pendingLoan;
+      const exportNetAmount = (exportBasic + exportOvertimeAmount) - exportUpadTotal - exportLoanInstallment;
+      buildExport(year, month, {
+        presentDays: exportPresentDays,
+        rate: exportRate,
+        basic: exportBasic,
+        overtimeHours: exportOvertimeHours,
+        overtimeRate: exportOvertimeRate,
+        overtimeAmount: exportOvertimeAmount,
+        upadTotal: exportUpadTotal,
+        loanInstallment: exportLoanInstallment,
+        pendingLoan: exportPendingLoan,
+        netAmount: exportNetAmount,
+      });
       setSearched(true);
     } catch (e: any) {
       toast.error(e.message || 'Failed to load salary');
@@ -204,10 +226,82 @@ export function SalaryRoj() {
   const overtimeAmount = overtimeHours * overtimeRate;
   const netAmount = (basic + overtimeAmount) - upadTotal - loanInstallment;
 
-  function buildExport(year: number, month: number) {
+  interface ExportNumbers {
+    presentDays: number;
+    rate: number;
+    basic: number;
+    overtimeHours: number;
+    overtimeRate: number;
+    overtimeAmount: number;
+    upadTotal: number;
+    loanInstallment: number;
+    pendingLoan: number;
+    netAmount: number;
+  }
+
+  function buildExport(year: number, month: number, numbers: ExportNumbers) {
     if (!selectedEmployee) { setExportInfo(null); return; }
     const monthName = new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' });
-    const html = `\n<html><head><meta charset="UTF-8"></head><body>\n<h2>Salary Summary (Daily Roj) - ${selectedEmployee.name}</h2>\n<div style="color:#666;margin-bottom:8px;">${monthName} ${year}</div>\n<table border="0" style="border-collapse:collapse;font-family:Arial;font-size:13px;">\n<thead>\n<tr>\n  <th style="padding:6px;border-bottom:1px solid #ccc;">Present Days</th>\n  <th style="padding:6px;border-bottom:1px solid #ccc;">Roj Rate</th>\n  <th style="padding:6px;border-bottom:1px solid #ccc;">Basic</th>\n  <th style="padding:6px;border-bottom:1px solid #ccc;">Overtime Hours</th>\n  <th style="padding:6px;border-bottom:1px solid #ccc;">Overtime Rate</th>\n  <th style="padding:6px;border-bottom:1px solid #ccc;">Overtime Amount</th>\n  <th style="padding:6px;border-bottom:1px solid #ccc;">Upad</th>\n  <th style="padding:6px;border-bottom:1px solid #ccc;">Pend. Loan</th>\n  <th style="padding:6px;border-bottom:1px solid #ccc;">Loan Installment</th>\n  <th style="padding:6px;border-bottom:1px solid #ccc;">Net Amount</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n  <td style="padding:6px;text-align:center;">${presentDays}</td>\n  <td style="padding:6px;text-align:center;">₹${rate.toFixed(2)}</td>\n  <td style="padding:6px;text-align:center;">₹${basic.toFixed(2)}</td>\n  <td style="padding:6px;text-align:center;">${overtimeHours}</td>\n  <td style="padding:6px;text-align:center;">₹${overtimeRate.toFixed(2)}</td>\n  <td style="padding:6px;text-align:center;">₹${overtimeAmount.toFixed(2)}</td>\n  <td style="padding:6px;text-align:center;">₹${upadTotal.toFixed(2)}</td>\n  <td style="padding:6px;text-align:center;">₹${pendingLoan.toFixed(2)}</td>\n  <td style="padding:6px;text-align:center;">₹${loanInstallment.toFixed(2)}</td>\n  <td style="padding:6px;text-align:center;font-weight:600;">₹${netAmount.toFixed(2)}</td>\n</tr>\n</tbody>\n</table>\n</body></html>`;
+
+    // Use point (pt) sizes so Excel shows the same font sizes
+    const html = `
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body { margin: 8px; font-family: Arial, sans-serif; font-size: 10pt; }
+      table { border-collapse: collapse; width: 100%; max-width: 100%; font-size: 10pt; }
+      th, td { padding: 3px 4px; }
+      .title-cell { text-align: center; font-size: 16pt; font-weight: bold; }
+      .subtitle-cell { text-align: center; font-size: 14pt; font-weight: 600; color: #555; }
+      .header-cell { border-bottom: 1px solid #ccc; }
+      .center { text-align: center; }
+      .net { font-weight: 600; }
+      .spacer-row { height: 6px; }
+    </style>
+  </head>
+  <body>
+    <table border="0">
+      <tr><td colspan="10" class="spacer-row">&nbsp;</td></tr>
+      <tr>
+        <td colspan="10" class="title-cell">Salary Report - ${selectedEmployee.name}</td>
+      </tr>
+      <tr>
+        <td colspan="10" class="subtitle-cell">${monthName} ${year} (Daily Roj)</td>
+      </tr>
+    </table>
+    <table border="0">
+      <thead>
+        <tr>
+          <th class="header-cell">Present Days</th>
+          <th class="header-cell">Roj Rate</th>
+          <th class="header-cell">Basic</th>
+          <th class="header-cell">OT Hrs</th>
+          <th class="header-cell">OT Rate</th>
+          <th class="header-cell">OT Amt</th>
+          <th class="header-cell">Upad</th>
+          <th class="header-cell">Pend. Loan</th>
+          <th class="header-cell">Loan EMI</th>
+          <th class="header-cell">Net Amt</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="center">${numbers.presentDays}</td>
+          <td class="center">${numbers.overtimeHours}</td>
+          <td class="center">Rs ${numbers.rate.toFixed(2)}</td>
+          <td class="center">Rs ${numbers.basic.toFixed(2)}</td>
+          <td class="center">Rs ${numbers.overtimeRate.toFixed(2)}</td>
+          <td class="center">Rs ${numbers.overtimeAmount.toFixed(2)}</td>
+          <td class="center">Rs ${numbers.upadTotal.toFixed(2)}</td>
+          <td class="center">Rs ${numbers.pendingLoan.toFixed(2)}</td>
+          <td class="center">Rs ${numbers.loanInstallment.toFixed(2)}</td>
+          <td class="center net">Rs ${numbers.netAmount.toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`;
     const filename = `${selectedEmployee.name.replace(/\s+/g,'_')}_${year}_${month}_roj_salary.xls`;
     setExportInfo({ html: '\uFEFF' + html, filename });
   }
@@ -338,15 +432,15 @@ export function SalaryRoj() {
                 <TableBody>
                   <TableRow>
                     <TableCell className="text-center font-semibold">{presentDays}</TableCell>
-                    <TableCell className="text-center">₹{rate.toFixed(2)}</TableCell>
-                    <TableCell className="text-center">₹{basic.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-sans">Rs {rate.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-sans">Rs {basic.toFixed(2)}</TableCell>
                     <TableCell className="text-center">{overtimeHours}</TableCell>
-                    <TableCell className="text-center">₹{overtimeRate.toFixed(2)}</TableCell>
-                    <TableCell className="text-center">₹{overtimeAmount.toFixed(2)}</TableCell>
-                    <TableCell className="text-center">₹{upadTotal.toFixed(2)}</TableCell>
-                    <TableCell className="text-center">₹{pendingLoan.toFixed(2)}</TableCell>
-                    <TableCell className="text-center">₹{loanInstallment.toFixed(2)}</TableCell>
-                    <TableCell className="text-center font-bold">₹{netAmount.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-sans">Rs {overtimeRate.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-sans">Rs {overtimeAmount.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-sans">Rs {upadTotal.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-sans">Rs {pendingLoan.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-sans">Rs {loanInstallment.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-bold font-sans">Rs {netAmount.toFixed(2)}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

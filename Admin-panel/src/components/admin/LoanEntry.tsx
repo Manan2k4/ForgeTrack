@@ -460,7 +460,7 @@ export function LoanEntry() {
           <div className="text-sm text-muted-foreground bg-muted/30 border border-border rounded-md p-3">
             • Default EMI auto-deducts monthly starting the loan's start month unless a transaction is recorded.<br/>
             • A Salary deduction transaction replaces the default EMI for that month.<br/>
-            • A Manual payment transaction makes salary deduction ₹0 for that month (paid externally).<br/>
+            • A Manual payment transaction makes salary deduction Rs 0 for that month (paid externally).<br/>
             • Closing a loan stops future deductions.
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -489,7 +489,7 @@ export function LoanEntry() {
             </div>
             <div className="md:col-span-1 flex flex-col gap-2">
               <div>
-                <label className="block text-sm font-medium mb-1">Loan Amount (₹)</label>
+                <label className="block text-sm font-medium mb-1">Loan Amount (Rs)</label>
                 <Input
                   type="number"
                   min={0}
@@ -499,7 +499,7 @@ export function LoanEntry() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Installment Amount (₹)</label>
+                <label className="block text-sm font-medium mb-1">Installment Amount (Rs)</label>
                 <Input
                   type="number"
                   min={0}
@@ -544,9 +544,9 @@ export function LoanEntry() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-center">Start (MM/YYYY)</TableHead>
-                      <TableHead className="text-center">Principal (₹)</TableHead>
-                      <TableHead className="text-center">Default EMI (₹)</TableHead>
-                      <TableHead className="text-center">Pending (₹)</TableHead>
+                      <TableHead className="text-center">Principal (Rs)</TableHead>
+                      <TableHead className="text-center">Default EMI (Rs)</TableHead>
+                      <TableHead className="text-center">Pending (Rs)</TableHead>
                       <TableHead className="text-center">Note</TableHead>
                       <TableHead className="text-center">Status</TableHead>
                       <TableHead className="text-center">Created</TableHead>
@@ -568,7 +568,7 @@ export function LoanEntry() {
                               className="h-8 text-center"
                             />
                           ) : (
-                            <>₹{Number(loan.principal).toFixed(2)}</>
+                            <>Rs {Number(loan.principal).toFixed(2)}</>
                           )}
                         </TableCell>
                         <TableCell className="text-center">
@@ -582,10 +582,10 @@ export function LoanEntry() {
                               className="h-8 text-center"
                             />
                           ) : (
-                            <>₹{Number(loan.defaultInstallment).toFixed(2)}</>
+                            <>Rs {Number(loan.defaultInstallment).toFixed(2)}</>
                           )}
                         </TableCell>
-                        <TableCell className="text-center">₹{getAdjustedPending(loan).toFixed(2)}</TableCell>
+                        <TableCell className="text-center">Rs {getAdjustedPending(loan).toFixed(2)}</TableCell>
                         <TableCell className="text-center">
                           {editingLoanId === loan._id ? (
                             <Input
@@ -655,9 +655,9 @@ export function LoanEntry() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-center">Start (MM/YYYY)</TableHead>
-                      <TableHead className="text-center">Principal (₹)</TableHead>
-                      <TableHead className="text-center">Default EMI (₹)</TableHead>
-                      <TableHead className="text-center">Pending (₹)</TableHead>
+                      <TableHead className="text-center">Principal (Rs)</TableHead>
+                      <TableHead className="text-center">Default EMI (Rs)</TableHead>
+                      <TableHead className="text-center">Pending (Rs)</TableHead>
                       <TableHead className="text-center">Note</TableHead>
                       <TableHead className="text-center">Status</TableHead>
                       <TableHead className="text-center">Created</TableHead>
@@ -668,9 +668,9 @@ export function LoanEntry() {
                     {pastLoans.map((loan) => (
                       <TableRow key={loan._id}>
                         <TableCell className="text-center">{formatMonthYear(loan.startMonth, loan.startYear)}</TableCell>
-                        <TableCell className="text-center">₹{Number(loan.principal).toFixed(2)}</TableCell>
-                        <TableCell className="text-center">₹{Number(loan.defaultInstallment).toFixed(2)}</TableCell>
-                        <TableCell className="text-center">₹{getAdjustedPending(loan).toFixed(2)}</TableCell>
+                        <TableCell className="text-center">Rs {Number(loan.principal).toFixed(2)}</TableCell>
+                        <TableCell className="text-center">Rs {Number(loan.defaultInstallment).toFixed(2)}</TableCell>
+                        <TableCell className="text-center">Rs {getAdjustedPending(loan).toFixed(2)}</TableCell>
                         <TableCell className="text-center">{loan.note || '-'}</TableCell>
                         <TableCell className="text-center capitalize">{loan.status}</TableCell>
                         <TableCell className="text-center">{formatDateDMY(loan.createdAt)}</TableCell>
@@ -702,7 +702,7 @@ export function LoanEntry() {
                     <TableRow>
                       <TableHead className="text-center">Loan Start</TableHead>
                       <TableHead className="text-center">Month</TableHead>
-                      <TableHead className="text-center">Amount (₹)</TableHead>
+                      <TableHead className="text-center">Amount (Rs)</TableHead>
                       <TableHead className="text-center">Type</TableHead>
                       <TableHead className="text-center">Created At</TableHead>
                       <TableHead className="text-center">Actions</TableHead>
@@ -726,7 +726,7 @@ export function LoanEntry() {
                                 className="h-8 text-center"
                               />
                             ) : (
-                              tx.amount === 0 ? 'Skipped' : `₹${Number(tx.amount).toFixed(2)}`
+                              tx.amount === 0 ? 'Skipped' : `Rs ${Number(tx.amount).toFixed(2)}`
                             )}
                           </TableCell>
                           <TableCell className="text-center capitalize">
@@ -812,7 +812,7 @@ export function LoanEntry() {
                 <SelectContent>
                   {loans.map((l) => (
                     <SelectItem key={l._id} value={l._id}>
-                      {formatMonthYear(l.startMonth, l.startYear)} • ₹{Number(l.defaultInstallment).toFixed(2)} EMI
+                      {formatMonthYear(l.startMonth, l.startYear)} • Rs {Number(l.defaultInstallment).toFixed(2)} EMI
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -823,7 +823,7 @@ export function LoanEntry() {
               <Input type="month" value={txMonthYear} onChange={(e) => setTxMonthYear(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Amount (₹)</label>
+              <label className="block text-sm font-medium mb-1">Amount (Rs)</label>
               <Input type="number" min={0} step="0.01" value={txAmount} onChange={(e) => setTxAmount(e.target.value)} />
             </div>
             <div>
@@ -848,7 +848,7 @@ export function LoanEntry() {
             </div>
             {selectedLoanId && (
               <div className="md:col-span-6 text-sm text-muted-foreground">
-                Pending balance: ₹{pendingForSelectedLoan.toFixed(2)}
+                Pending balance: Rs {pendingForSelectedLoan.toFixed(2)}
               </div>
             )}
           </div>
@@ -871,7 +871,7 @@ export function LoanEntry() {
                   <SelectContent>
                     {activeLoans.map((l) => (
                       <SelectItem key={l._id} value={l._id}>
-                        {formatMonthYear(l.startMonth, l.startYear)} • Pending {loanStats[l._id] ? `₹${loanStats[l._id].pendingAmount.toFixed(2)}` : '₹0.00'}
+                        {formatMonthYear(l.startMonth, l.startYear)} • Pending {loanStats[l._id] ? `Rs ${loanStats[l._id].pendingAmount.toFixed(2)}` : 'Rs 0.00'}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -882,7 +882,7 @@ export function LoanEntry() {
                 <Input type="month" value={closeMonthYear} onChange={(e) => setCloseMonthYear(e.target.value)} />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Outstanding Amount (₹)</label>
+                <label className="block text-sm font-medium mb-1">Outstanding Amount (Rs)</label>
                 <Input
                   value={closeLoanId ? pendingForClose.toFixed(2) : '0.00'}
                   readOnly

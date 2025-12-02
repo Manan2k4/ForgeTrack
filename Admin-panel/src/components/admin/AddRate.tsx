@@ -168,7 +168,7 @@ export function AddRate() {
                                   </div>
                                 ) : (
                                   <span className="text-foreground font-medium">
-                                    ₹{(job.rate || 0).toFixed(2)}
+                                    Rs {(job.rate || 0).toFixed(2)}
                                   </span>
                                 )}
                               </td>

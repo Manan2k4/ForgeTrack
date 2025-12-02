@@ -162,7 +162,7 @@ export function UpadEntry() {
           </div>
           <div className="md:col-span-1 flex flex-col gap-2">
             <div>
-              <label className="block text-sm font-medium mb-1">Upad Amount (₹)</label>
+              <label className="block text-sm font-medium mb-1">Upad Amount (Rs)</label>
               <Input
                 type="number"
                 min={0}
@@ -195,7 +195,7 @@ export function UpadEntry() {
                   <thead>
                     <tr className="border-b">
                       <th className="py-2 px-2">Month</th>
-                      <th className="py-2 px-2">Amount (₹)</th>
+                      <th className="py-2 px-2">Amount (Rs)</th>
                       <th className="py-2 px-2 w-72">Note</th>
                       <th className="py-2 px-2">Created At</th>
                       <th className="py-2 px-2">Actions</th>
@@ -216,7 +216,7 @@ export function UpadEntry() {
                               className="h-8 text-center"
                             />
                           ) : (
-                            <>₹{Number(e.amount).toFixed(2)}</>
+                            <>Rs {Number(e.amount).toFixed(2)}</>
                           )}
                         </td>
                         <td className="py-2 px-2">

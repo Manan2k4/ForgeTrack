@@ -375,7 +375,7 @@ export function OvertimeNote() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Rate (optional)</label>
-              <Input type="number" min={0} step="0.01" value={rate} onChange={(e) => setRate(e.target.value)} placeholder={selectedEmp?.dailyRojRate ? `Default ≈ ₹${(selectedEmp.dailyRojRate/8).toFixed(2)}` : 'auto (roj/8)'} />
+              <Input type="number" min={0} step="0.01" value={rate} onChange={(e) => setRate(e.target.value)} placeholder={selectedEmp?.dailyRojRate ? `Default ≈ Rs ${(selectedEmp.dailyRojRate/8).toFixed(2)}` : 'auto (roj/8)'} />
             </div>
             <div>
               <Button onClick={submit} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
@@ -417,7 +417,7 @@ export function OvertimeNote() {
                         {editingId === r.id ? (
                           <Input type="number" min={0} step="0.01" value={editRate} onChange={(e) => setEditRate(e.target.value)} />
                         ) : (
-                          r.rate != null ? `₹${Number(r.rate).toFixed(2)}` : '—'
+                          r.rate != null ? `Rs ${Number(r.rate).toFixed(2)}` : '—'
                         )}
                       </TableCell>
                       <TableCell className="text-center">

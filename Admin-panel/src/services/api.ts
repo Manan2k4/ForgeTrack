@@ -432,6 +432,14 @@ class ApiService {
     return this.request<any>(`/attendance/${id}`, { method: 'DELETE' });
   }
 
+  async bulkDeleteAttendance(params: { employeeId: string; month: number; year: number }) {
+    const search = new URLSearchParams();
+    search.set('employeeId', params.employeeId);
+    search.set('month', String(params.month));
+    search.set('year', String(params.year));
+    return this.request<any>(`/attendance/bulk?${search.toString()}`, { method: 'DELETE' });
+  }
+
   async listAttendance(params: { employeeId?: string; month: number; year: number }) {
     const search = new URLSearchParams();
     if (params.employeeId) search.set('employeeId', params.employeeId);
@@ -571,6 +579,14 @@ class ApiService {
     return this.request<any>(`/attendance/overtime/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  async bulkDeleteOvertime(params: { employeeId: string; month: number; year: number }) {
+    const search = new URLSearchParams();
+    search.set('employeeId', params.employeeId);
+    search.set('month', String(params.month));
+    search.set('year', String(params.year));
+    return this.request<any>(`/attendance/overtime/bulk?${search.toString()}`, { method: 'DELETE' });
   }
 }
 

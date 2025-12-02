@@ -40,6 +40,27 @@ router.post('/', adminAuth, async (req, res) => {
   }
 });
 
+// Bulk delete overtime for employee & month/year
+// IMPORTANT: Placed before any ":id" routes so "/bulk" isn't treated as an id.
+router.delete('/bulk', adminAuth, async (req, res) => {
+  try {
+    const { employeeId, month, year } = req.query;
+    if (!employeeId || !month || !year) {
+      return res.status(400).json({ success: false, message: 'employeeId, month and year are required' });
+    }
+    console.log('[OVERTIME BULK DELETE] incoming', { employeeId, month, year });
+    const monthStr = String(month).padStart(2, '0');
+    const prefix = `${year}-${monthStr}`; // YYYY-MM
+    const q = { employeeId, date: { $regex: `^${prefix}` } };
+    const result = await Overtime.deleteMany(q);
+    console.log('[OVERTIME BULK DELETE] result', { deletedCount: result.deletedCount });
+    res.json({ success: true, deletedCount: result.deletedCount });
+  } catch (err) {
+    console.error('Bulk delete overtime error:', err);
+    res.status(500).json({ success: false, message: 'Failed bulk delete overtime', error: err.message });
+  }
+});
+
 // Update overtime
 router.put('/:id', adminAuth, async (req, res) => {
   try {

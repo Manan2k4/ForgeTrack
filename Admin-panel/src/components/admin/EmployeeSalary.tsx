@@ -228,61 +228,88 @@ export function EmployeeSalary() {
     jobColumns.sort((a,b) => jobLabelMap[a].localeCompare(jobLabelMap[b]));
 
     // Build a compact summary table: job-type columns + monetary summary columns (no leading metric column)
-    let table = `<table border="0" style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:13px;width:100%;">`;
-    // Header row: job type columns
-    table += `<thead><tr>`;
+    let table = `<table border="0"><thead><tr>`;
     jobColumns.forEach((k) => {
-      table += `<th style="text-align:center;padding:8px;border-bottom:1px solid #ddd;">${jobLabelMap[k]}</th>`;
+      table += `<th class="header-cell">${jobLabelMap[k]}</th>`;
     });
     const extraHeaders = ['Basic','Upad','Pend. Loan','Loan Installment','Net Amount'];
     extraHeaders.forEach((h) => {
-      table += `<th style=\"text-align:center;padding:8px;border-bottom:1px solid #ddd;\">${h}</th>`;
+      table += `<th class=\"header-cell\">${h}</th>`;
     });
     table += `</tr></thead><tbody>`;
 
     // Qty (total OKParts for month)
-    table += `<tr>`;
+    table += `<tr class="row-qty">`;
     jobColumns.forEach((k) => {
       const q = qtyTotals[k] || 0;
-      table += `<td style="text-align:center;padding:8px;font-weight:600;">${q ? q.toFixed(3) : ''}</td>`;
+      table += `<td class="cell center strong">${q ? q.toFixed(3) : ''}</td>`;
     });
-    extraHeaders.forEach(() => { table += `<td style=\"text-align:center;padding:8px;\"></td>`; });
+    extraHeaders.forEach(() => { table += `<td class=\"cell center\"></td>`; });
     table += `</tr>`;
 
     // Rate row
-    table += `<tr>`;
+    table += `<tr class="row-rate">`;
     jobColumns.forEach((k) => {
       const r = rateByJob[k] || 0;
-      table += `<td style="text-align:center;padding:8px;">${r ? `₹${r.toFixed(2)}` : ''}</td>`;
+      table += `<td class="cell center">${r ? `Rs ${r.toFixed(2)}` : ''}</td>`;
     });
-    extraHeaders.forEach(() => { table += `<td style=\"text-align:center;padding:8px;\"></td>`; });
+    extraHeaders.forEach(() => { table += `<td class=\"cell center\"></td>`; });
     table += `</tr>`;
 
     // Amount row (qty * rate)
-    table += `<tr>`;
+    table += `<tr class="row-amount">`;
     let grandAmount = 0;
     jobColumns.forEach((k) => {
       const q = qtyTotals[k] || 0;
       const r = rateByJob[k] || 0;
       const amt = q * r;
       grandAmount += amt;
-      table += `<td style="text-align:center;padding:8px;">${amt ? `₹${amt.toFixed(2)}` : ''}</td>`;
+      table += `<td class="cell center">${amt ? `Rs ${amt.toFixed(2)}` : ''}</td>`;
     });
     const basic = salaryData.monthTotal || 0;
     const upad = (typeof (window as any) !== 'undefined' ? (typeof (upadTotal) === 'number' ? upadTotal : 0) : 0);
     const loanInstallment = (typeof (window as any) !== 'undefined' ? (typeof (loanInstallmentTotal) === 'number' ? loanInstallmentTotal : 0) : 0);
     const pendingLoan = (typeof (window as any) !== 'undefined' ? (typeof (pendingLoanTotal) === 'number' ? pendingLoanTotal : 0) : 0);
     const netAmount = basic - upad - loanInstallment;
-    table += `<td style=\"text-align:center;padding:8px;\">₹${basic.toFixed(2)}</td>`;
-    table += `<td style=\"text-align:center;padding:8px;\">₹${upad.toFixed(2)}</td>`;
-    table += `<td style=\"text-align:center;padding:8px;\">₹${pendingLoan.toFixed(2)}</td>`;
-    table += `<td style=\"text-align:center;padding:8px;\">₹${loanInstallment.toFixed(2)}</td>`;
-    table += `<td style=\"text-align:center;padding:8px;font-weight:700;\">₹${netAmount.toFixed(2)}</td>`;
+    table += `<td class="cell center">Rs ${basic.toFixed(2)}</td>`;
+    table += `<td class="cell center">Rs ${upad.toFixed(2)}</td>`;
+    table += `<td class="cell center">Rs ${pendingLoan.toFixed(2)}</td>`;
+    table += `<td class="cell center">Rs ${loanInstallment.toFixed(2)}</td>`;
+    table += `<td class="cell center net">Rs ${netAmount.toFixed(2)}</td>`;
     table += `</tr>`;
 
     table += `</tbody></table>`;
 
-    const html = `<html><head><meta charset="UTF-8"></head><body><h2>Salary Summary - ${salaryData.employeeName}</h2><div style="color:#666;margin-bottom:8px;">${periodLabel}</div>${table}</body></html>`;
+    const html = `
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body { margin: 8px; font-family: Arial, sans-serif; font-size: 10pt; }
+      table { border-collapse: collapse; width: 100%; max-width: 100%; font-size: 10pt; }
+      th, td { padding: 3px 4px; }
+      .title-cell { text-align: center; font-size: 16pt; font-weight: bold; }
+      .subtitle-cell { text-align: center; font-size: 14pt; font-weight: 600; color: #555; }
+      .header-cell { border-bottom: 1px solid #ccc; text-align: center; }
+      .cell { padding: 3px 4px; }
+      .center { text-align: center; }
+      .net { font-weight: 700; }
+      .spacer-row { height: 6px; }
+    </style>
+  </head>
+  <body>
+    <table border="0">
+      <tr><td colspan="${jobColumns.length + extraHeaders.length}" class="spacer-row">&nbsp;</td></tr>
+      <tr>
+        <td colspan="${jobColumns.length + extraHeaders.length}" class="title-cell">Salary Summary - ${salaryData.employeeName}</td>
+      </tr>
+      <tr>
+        <td colspan="${jobColumns.length + extraHeaders.length}" class="subtitle-cell">${periodLabel}</td>
+      </tr>
+    </table>
+    ${table}
+  </body>
+</html>`;
 
     // Prepend BOM to help Excel detect UTF-8 and render rupee symbol correctly
     const bom = '\uFEFF';
@@ -537,20 +564,20 @@ export function EmployeeSalary() {
                               </TableRow>
                               <TableRow className="font-semibold">
                                 {jobColumns.map((key) => (
-                                  <TableCell key={key} className="text-center">{rateByJob[key] ? `₹${rateByJob[key].toFixed(2)}` : ''}</TableCell>
+                                  <TableCell key={key} className="text-center">{rateByJob[key] ? `Rs ${rateByJob[key].toFixed(2)}` : ''}</TableCell>
                                 ))}
                                 {extraHeaders.map((h) => (<TableCell key={`rate-${h}`} className="text-center"></TableCell>))}
                               </TableRow>
                               <TableRow className="font-semibold">
                                 {jobColumns.map((key) => (
-                                  <TableCell key={key} className="text-center">{amountByJob[key] ? `₹${amountByJob[key].toFixed(2)}` : ''}</TableCell>
+                                  <TableCell key={key} className="text-center">{amountByJob[key] ? `Rs ${amountByJob[key].toFixed(2)}` : ''}</TableCell>
                                 ))}
                                 {/* Monetary summary columns */}
-                                <TableCell className="text-center">₹{basic.toFixed(2)}</TableCell>
-                                <TableCell className="text-center">₹{upad.toFixed(2)}</TableCell>
-                                <TableCell className="text-center">₹{pendingLoan.toFixed(2)}</TableCell>
-                                <TableCell className="text-center">₹{loanInstallment.toFixed(2)}</TableCell>
-                                <TableCell className="text-center font-bold">₹{netAmount.toFixed(2)}</TableCell>
+                                <TableCell className="text-center font-sans">Rs {basic.toFixed(2)}</TableCell>
+                                <TableCell className="text-center font-sans">Rs {upad.toFixed(2)}</TableCell>
+                                <TableCell className="text-center font-sans">Rs {pendingLoan.toFixed(2)}</TableCell>
+                                <TableCell className="text-center font-sans">Rs {loanInstallment.toFixed(2)}</TableCell>
+                                <TableCell className="text-center font-bold font-sans">Rs {netAmount.toFixed(2)}</TableCell>
                               </TableRow>
                             </TableBody>
                           </Table>
@@ -591,7 +618,7 @@ export function EmployeeSalary() {
                                   {jobLabelMap[key]}
                                 </TableHead>
                               ))}
-                              <TableHead className="text-center">Day Total (₹)</TableHead>
+                              <TableHead className="text-center">Day Total (Rs )</TableHead>
                               <TableHead className="text-center">Basic</TableHead>
                               <TableHead className="text-center">Upad</TableHead>
                               <TableHead className="text-center">Pend. Loan</TableHead>
@@ -606,7 +633,7 @@ export function EmployeeSalary() {
                                 {jobColumns.map((key) => (
                                   <TableCell key={key} className="text-center">{row.qtyByJob[key] ? row.qtyByJob[key].toFixed(3) : ''}</TableCell>
                                 ))}
-                                <TableCell className="text-center font-semibold">₹{row.dayTotal.toFixed(2)}</TableCell>
+                                <TableCell className="text-center font-semibold font-sans">Rs {row.dayTotal.toFixed(2)}</TableCell>
                                 {/* Monthly totals are not per-day; leave empty in daily rows */}
                                 <TableCell className="text-center"></TableCell>
                                 <TableCell className="text-center"></TableCell>
@@ -630,7 +657,7 @@ export function EmployeeSalary() {
                             <TableRow className="font-semibold">
                               <TableCell className="whitespace-nowrap text-center">Rate</TableCell>
                               {jobColumns.map((key) => (
-                                <TableCell key={key} className="text-center">{rateByJob[key] ? `₹${rateByJob[key].toFixed(2)}` : ''}</TableCell>
+                                <TableCell key={key} className="text-center">{rateByJob[key] ? `Rs ${rateByJob[key].toFixed(2)}` : ''}</TableCell>
                               ))}
                               <TableCell />
                               <TableCell />
@@ -642,16 +669,16 @@ export function EmployeeSalary() {
                             <TableRow className="font-semibold">
                               <TableCell className="whitespace-nowrap text-center">Amount</TableCell>
                               {jobColumns.map((key) => (
-                                <TableCell key={key} className="text-center">{amountByJob[key] ? `₹${amountByJob[key].toFixed(2)}` : ''}</TableCell>
+                                <TableCell key={key} className="text-center">{amountByJob[key] ? `Rs ${amountByJob[key].toFixed(2)}` : ''}</TableCell>
                               ))}
-                              {/* Day Total (₹) for the entire month */}
-                              <TableCell className="text-center font-bold">₹{grandAmount.toFixed(2)}</TableCell>
+                              {/* Day Total (Rs ) for the entire month */}
+                              <TableCell className="text-center font-bold font-sans">Rs {grandAmount.toFixed(2)}</TableCell>
                               {/* Monetary summary columns aligned with their headers */}
-                              <TableCell className="text-center">₹{basic.toFixed(2)}</TableCell>
-                              <TableCell className="text-center">₹{upad.toFixed(2)}</TableCell>
-                              <TableCell className="text-center">₹{pendingLoan.toFixed(2)}</TableCell>
-                              <TableCell className="text-center">₹{loanInstallment.toFixed(2)}</TableCell>
-                              <TableCell className="text-center font-bold">₹{netAmount.toFixed(2)}</TableCell>
+                              <TableCell className="text-center font-sans">Rs {basic.toFixed(2)}</TableCell>
+                              <TableCell className="text-center font-sans">Rs {upad.toFixed(2)}</TableCell>
+                              <TableCell className="text-center font-sans">Rs {pendingLoan.toFixed(2)}</TableCell>
+                              <TableCell className="text-center font-sans">Rs {loanInstallment.toFixed(2)}</TableCell>
+                              <TableCell className="text-center font-bold font-sans">Rs {netAmount.toFixed(2)}</TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
