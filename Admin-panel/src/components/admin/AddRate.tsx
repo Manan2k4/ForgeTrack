@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 interface JobType {
   _id: string;
-  partType: 'sleeve' | 'rod' | 'pin';
+  partType: 'sleeve' | 'rod' | 'pin' | 'general';
   jobName: string;
   rate: number;
 }
@@ -77,7 +77,8 @@ export function AddRate() {
   const partTypeLabels: Record<string, string> = {
     sleeve: 'Sleeve Workshop',
     rod: 'Rod Workshop',
-    pin: 'Pin Workshop'
+    pin: 'Pin Workshop',
+    general: 'General Services'
   };
 
   if (loading) {
@@ -107,8 +108,8 @@ export function AddRate() {
         </Card>
       ) : (
         <div className="space-y-6">
-          {/* Always show all three workshops, even if empty */}
-          {(['sleeve', 'rod', 'pin'] as const).map((partType) => {
+          {/* Always show all four groups, even if empty */}
+          {(['sleeve', 'rod', 'pin', 'general'] as const).map((partType) => {
             const jobs = groupedJobTypes[partType] || [];
             return (
               <Card key={partType}>

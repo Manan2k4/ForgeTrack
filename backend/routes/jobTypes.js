@@ -26,7 +26,7 @@ router.post('/', adminAuth, async (req, res) => {
     if (!partType || !jobName) {
       return res.status(400).json({ success: false, message: 'partType and jobName are required' });
     }
-    if (!['sleeve', 'rod', 'pin'].includes(partType)) {
+    if (!['sleeve', 'rod', 'pin', 'general'].includes(partType)) {
       return res.status(400).json({ success: false, message: 'Invalid partType' });
     }
     const existing = await JobType.findOne({ partType, jobName }).collation({ locale: 'en', strength: 2 });
@@ -51,7 +51,7 @@ router.put('/:id', adminAuth, async (req, res) => {
     if (!doc) return res.status(404).json({ success: false, message: 'Job type not found' });
     if (partType) {
       partType = partType.trim().toLowerCase();
-      if (!['sleeve', 'rod', 'pin'].includes(partType)) {
+      if (!['sleeve', 'rod', 'pin', 'general'].includes(partType)) {
         return res.status(400).json({ success: false, message: 'Invalid partType' });
       }
       doc.partType = partType;

@@ -220,7 +220,7 @@ export function EmployeeSalary() {
           jobColumns.push(key);
           jobLabelMap[key] = `${log.jobName} (${log.partType})`;
         }
-        qtyTotals[key] = (qtyTotals[key] || 0) + (log.okParts || 0);
+        qtyTotals[key] = (qtyTotals[key] || 0) + (log.totalParts || 0);
         // Prefer the latest non-zero rate seen
         if (typeof log.rate === 'number' && log.rate > 0) rateByJob[key] = log.rate;
       });
@@ -267,9 +267,9 @@ export function EmployeeSalary() {
       table += `<td class="cell center">${amt ? `Rs ${amt.toFixed(2)}` : ''}</td>`;
     });
     const basic = salaryData.monthTotal || 0;
-    const upad = (typeof (window as any) !== 'undefined' ? (typeof (upadTotal) === 'number' ? upadTotal : 0) : 0);
-    const loanInstallment = (typeof (window as any) !== 'undefined' ? (typeof (loanInstallmentTotal) === 'number' ? loanInstallmentTotal : 0) : 0);
-    const pendingLoan = (typeof (window as any) !== 'undefined' ? (typeof (pendingLoanTotal) === 'number' ? pendingLoanTotal : 0) : 0);
+    const upad = typeof upadTotal === 'number' ? upadTotal : 0;
+    const loanInstallment = typeof loanInstallmentTotal === 'number' ? loanInstallmentTotal : 0;
+    const pendingLoan = typeof pendingLoanTotal === 'number' ? pendingLoanTotal : 0;
     const netAmount = basic - upad - loanInstallment;
     table += `<td class="cell center">Rs ${basic.toFixed(2)}</td>`;
     table += `<td class="cell center">Rs ${upad.toFixed(2)}</td>`;
@@ -521,7 +521,7 @@ export function EmployeeSalary() {
                   salaryData.dailyLogs.forEach((day) => {
                     day.logs.forEach((log) => {
                       const key = `${log.jobName}|${log.partType}`;
-                      qtyTotals[key] = (qtyTotals[key] || 0) + log.okParts;
+                      qtyTotals[key] = (qtyTotals[key] || 0) + log.totalParts;
                       rateByJob[key] = log.rate;
                       amountByJob[key] = (amountByJob[key] || 0) + log.amount;
                     });

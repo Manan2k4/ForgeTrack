@@ -51,6 +51,7 @@ export function ManageEmployees() {
     'Rod/Pin Workshop',
     'Packing',
     'Transporter',
+    'General',
   ];
 
   useEffect(() => {

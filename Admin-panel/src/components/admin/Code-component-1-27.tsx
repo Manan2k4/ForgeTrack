@@ -25,7 +25,8 @@ const departments = [
   'Assembly',
   'Packaging',
   'Inventory',
-  'Transporter'
+  'Transporter',
+  'General'
 ];
 
 export function AddEmployee() {

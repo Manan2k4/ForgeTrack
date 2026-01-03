@@ -56,7 +56,7 @@ const userSchema = new mongoose.Schema({
     required: function() {
       return this.role === 'employee';
     },
-    enum: ['Sleeve Workshop', 'Rod/Pin Workshop', 'Packing', 'Transporter']
+    enum: ['Sleeve Workshop', 'Rod/Pin Workshop', 'Packing', 'Transporter', 'General']
   },
   // Employment classification for salary calculations
   employmentType: {

@@ -17,6 +17,7 @@ const PART_TYPES = [
   { value: 'sleeve', label: 'Sleeve' },
   { value: 'rod', label: 'Rod' },
   { value: 'pin', label: 'Pin' },
+  { value: 'general', label: 'General Services' },
 ];
 
 export function AddJobType() {
@@ -72,7 +73,7 @@ export function AddJobType() {
   };
 
   const renderGroupedTables = () => (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid gap-6 lg:grid-cols-4">
       {PART_TYPES.map(type => {
         const group = jobTypes.filter(j => j.partType === type.value);
         return (

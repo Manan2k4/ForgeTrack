@@ -26,6 +26,7 @@ export function SalaryRoj() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [selectedEmployeeName, setSelectedEmployeeName] = useState('');
   const [showEmployeeList, setShowEmployeeList] = useState(false);
+  const [employeeQuery, setEmployeeQuery] = useState('');
 
   const [monthYear, setMonthYear] = useState(() => {
     const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}`;
@@ -122,7 +123,7 @@ export function SalaryRoj() {
   async function handleSearch() {
     if (!selectedEmployeeId) { toast.error('Select employee'); return; }
     if (!monthYear) { toast.error('Select month & year'); return; }
-    const [yearStr, monthStr] = monthYear.split('-');
+    const [yearStr, monthStr] = String(monthYear).split('-');
     const year = Number(yearStr); const month = Number(monthStr);
     if (!year || !month) { toast.error('Invalid month/year'); return; }
     setLoading(true);
@@ -134,14 +135,23 @@ export function SalaryRoj() {
         return attId === selectedEmployeeId;
       }) || null;
       setAttendanceSummary(found);
-      // Upad
+      // Upad (compute once and reuse for UI + export)
+      let upadTotalForMonth = 0;
       try {
         const upadRes = await apiService.listUpad({ employeeId: selectedEmployeeId, month, year });
         const entries = (upadRes as any).data || [];
-        const total = Array.isArray(entries) ? entries.reduce((s: number, v: any) => s + (Number(v.amount) || 0), 0) : 0;
-        setUpadTotal(total);
-      } catch { setUpadTotal(0); }
-      // Loan (use Contract Salary schema)
+        upadTotalForMonth = Array.isArray(entries)
+          ? entries.reduce((s: number, v: any) => s + (Number(v.amount) || 0), 0)
+          : 0;
+        setUpadTotal(upadTotalForMonth);
+      } catch {
+        upadTotalForMonth = 0;
+        setUpadTotal(0);
+      }
+
+      // Loan (use Contract Salary schema) - compute once and reuse
+      let loanEmiForMonth = 0;
+      let pendingLoanForMonth = 0;
       try {
         const loanDataRes = await (apiService as any).getEmployeeLoanData(selectedEmployeeId);
         const payload = (loanDataRes as any).data || {};
@@ -149,7 +159,7 @@ export function SalaryRoj() {
         const transactions = Array.isArray(payload.transactions) ? payload.transactions : [];
         const stats = payload.stats || {};
 
-        const emiForMonth = loans.reduce((sum: number, l: any) => {
+        loanEmiForMonth = loans.reduce((sum: number, l: any) => {
           if (l.status !== 'active') return sum;
           const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
           if (!started) return sum;
@@ -161,9 +171,9 @@ export function SalaryRoj() {
           }
           return sum + (Number(l.defaultInstallment) || 0);
         }, 0);
-        setLoanInstallment(emiForMonth);
+        setLoanInstallment(loanEmiForMonth);
 
-        const pendingTotal = loans.reduce((acc: number, l: any) => {
+        pendingLoanForMonth = loans.reduce((acc: number, l: any) => {
           if (l.status !== 'active') return acc;
           const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
           if (!started) return acc;
@@ -185,20 +195,25 @@ export function SalaryRoj() {
           }
           return acc + pending;
         }, 0);
-        setPendingLoan(pendingTotal || 0);
-      } catch { setLoanInstallment(0); setPendingLoan(0); }
+        setPendingLoan(pendingLoanForMonth || 0);
+      } catch {
+        loanEmiForMonth = 0;
+        pendingLoanForMonth = 0;
+        setLoanInstallment(0);
+        setPendingLoan(0);
+      }
       // Overtime is already fetched via effect on selection/month change
       if (!found) toast.info('No attendance recorded for this employee in selected month (showing 0 days)');
-      // Build export using the same numbers as the on-screen table
+      // Build export using the freshly computed numbers (not possibly stale state)
       const exportPresentDays = (found?.presentDays ?? 0);
       const exportRate = selectedEmployee?.dailyRojRate || 0;
       const exportBasic = exportPresentDays * exportRate;
       const exportOvertimeHours = overtimeTotalHours;
-      const exportOvertimeRate = overtimeRateDefault || exportRate / 8 || 0;
+      const exportOvertimeRate = overtimeRateDefault || (exportRate > 0 ? exportRate / 8 : 0);
       const exportOvertimeAmount = exportOvertimeHours * exportOvertimeRate;
-      const exportUpadTotal = upadTotal;
-      const exportLoanInstallment = loanInstallment;
-      const exportPendingLoan = pendingLoan;
+      const exportUpadTotal = upadTotalForMonth;
+      const exportLoanInstallment = loanEmiForMonth;
+      const exportPendingLoan = pendingLoanForMonth;
       const exportNetAmount = (exportBasic + exportOvertimeAmount) - exportUpadTotal - exportLoanInstallment;
       buildExport(year, month, {
         presentDays: exportPresentDays,
@@ -208,8 +223,8 @@ export function SalaryRoj() {
         overtimeRate: exportOvertimeRate,
         overtimeAmount: exportOvertimeAmount,
         upadTotal: exportUpadTotal,
-        loanInstallment: exportLoanInstallment,
         pendingLoan: exportPendingLoan,
+        loanInstallment: exportLoanInstallment,
         netAmount: exportNetAmount,
       });
       setSearched(true);
@@ -220,9 +235,12 @@ export function SalaryRoj() {
 
   const presentDays = attendanceSummary?.presentDays || 0;
   const rate = selectedEmployee?.dailyRojRate || 0;
+  // Basic = present days * DRR
   const basic = presentDays * rate;
   const overtimeHours = overtimeTotalHours;
-  const overtimeRate = overtimeRateDefault || rate / 8 || 0;
+  // OT rate defaults to DRR/8 when no explicit override
+  const overtimeRate = overtimeRateDefault || (rate > 0 ? rate / 8 : 0);
+  // OT amount = OT hours * OT rate
   const overtimeAmount = overtimeHours * overtimeRate;
   const netAmount = (basic + overtimeAmount) - upadTotal - loanInstallment;
 
@@ -275,24 +293,24 @@ export function SalaryRoj() {
         <tr>
           <th class="header-cell">Present Days</th>
           <th class="header-cell">Roj Rate</th>
-          <th class="header-cell">Basic</th>
           <th class="header-cell">OT Hrs</th>
           <th class="header-cell">OT Rate</th>
           <th class="header-cell">OT Amt</th>
+          <th class="header-cell">Basic</th>
           <th class="header-cell">Upad</th>
           <th class="header-cell">Pend. Loan</th>
-          <th class="header-cell">Loan EMI</th>
-          <th class="header-cell">Net Amt</th>
+          <th class="header-cell">Loan Installment</th>
+          <th class="header-cell">Net Amount</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td class="center">${numbers.presentDays}</td>
-          <td class="center">${numbers.overtimeHours}</td>
           <td class="center">Rs ${numbers.rate.toFixed(2)}</td>
-          <td class="center">Rs ${numbers.basic.toFixed(2)}</td>
+          <td class="center">${numbers.overtimeHours}</td>
           <td class="center">Rs ${numbers.overtimeRate.toFixed(2)}</td>
           <td class="center">Rs ${numbers.overtimeAmount.toFixed(2)}</td>
+          <td class="center">Rs ${numbers.basic.toFixed(2)}</td>
           <td class="center">Rs ${numbers.upadTotal.toFixed(2)}</td>
           <td class="center">Rs ${numbers.pendingLoan.toFixed(2)}</td>
           <td class="center">Rs ${numbers.loanInstallment.toFixed(2)}</td>
@@ -330,6 +348,16 @@ export function SalaryRoj() {
               <label className="block text-sm font-medium mb-2">Employee (Daily Roj)</label>
               {!selectedEmployeeId ? (
                 <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Type to filter…"
+                    className="w-full px-3 py-2 mb-2 rounded border bg-background"
+                    value={employeeQuery}
+                    onChange={e => setEmployeeQuery(e.target.value)}
+                    onKeyDown={e => {
+                      if (!showEmployeeList) setShowEmployeeList(true);
+                    }}
+                  />
                   <Button
                     type="button"
                     variant="outline"
@@ -341,7 +369,11 @@ export function SalaryRoj() {
                   </Button>
                   {showEmployeeList && (
                     <div className="absolute z-10 w-full mt-1 bg-background border rounded shadow max-h-60 overflow-y-auto">
-                      {employees.map(emp => (
+                      {employees.filter(emp => {
+                        const q = employeeQuery.trim().toLowerCase();
+                        if (!q) return true;
+                        return emp.name.toLowerCase().includes(q);
+                      }).map(emp => (
                         <button
                           key={getId(emp)}
                           type="button"
@@ -350,6 +382,7 @@ export function SalaryRoj() {
                             setSelectedEmployeeId(getId(emp));
                             setSelectedEmployeeName(emp.name);
                             setShowEmployeeList(false);
+                            setEmployeeQuery('');
                           }}
                         >
                           {emp.name}
@@ -369,6 +402,7 @@ export function SalaryRoj() {
                       setSelectedEmployeeName('');
                       setAttendanceSummary(null);
                       setExportInfo(null);
+                      setEmployeeQuery('');
                     }}
                   >✕</button>
                 </div>
@@ -419,10 +453,10 @@ export function SalaryRoj() {
                   <TableRow>
                     <TableHead className="text-center">Present Days</TableHead>
                     <TableHead className="text-center">Roj Rate</TableHead>
-                    <TableHead className="text-center">Basic</TableHead>
                     <TableHead className="text-center">Overtime Hours</TableHead>
                     <TableHead className="text-center">Overtime Rate</TableHead>
                     <TableHead className="text-center">Overtime Amount</TableHead>
+                    <TableHead className="text-center">Basic</TableHead>
                     <TableHead className="text-center">Upad</TableHead>
                     <TableHead className="text-center">Pend. Loan</TableHead>
                     <TableHead className="text-center">Loan Installment</TableHead>
@@ -433,10 +467,10 @@ export function SalaryRoj() {
                   <TableRow>
                     <TableCell className="text-center font-semibold">{presentDays}</TableCell>
                     <TableCell className="text-center font-sans">Rs {rate.toFixed(2)}</TableCell>
-                    <TableCell className="text-center font-sans">Rs {basic.toFixed(2)}</TableCell>
                     <TableCell className="text-center">{overtimeHours}</TableCell>
                     <TableCell className="text-center font-sans">Rs {overtimeRate.toFixed(2)}</TableCell>
                     <TableCell className="text-center font-sans">Rs {overtimeAmount.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-sans">Rs {basic.toFixed(2)}</TableCell>
                     <TableCell className="text-center font-sans">Rs {upadTotal.toFixed(2)}</TableCell>
                     <TableCell className="text-center font-sans">Rs {pendingLoan.toFixed(2)}</TableCell>
                     <TableCell className="text-center font-sans">Rs {loanInstallment.toFixed(2)}</TableCell>
