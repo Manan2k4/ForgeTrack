@@ -84,14 +84,23 @@ export function SalaryMonth() {
         return attId === selectedEmployeeId;
       }) || null;
       setAttendanceSummary(found);
-      // Upad
+      // Upad (compute once and reuse for UI + export)
+      let upadTotalForMonth = 0;
       try {
         const upadRes = await apiService.listUpad({ employeeId: selectedEmployeeId, month, year });
         const entries = (upadRes as any).data || [];
-        const total = Array.isArray(entries) ? entries.reduce((s: number, v: any) => s + (Number(v.amount) || 0), 0) : 0;
-        setUpadTotal(total);
-      } catch { setUpadTotal(0); }
-      // Loan
+        upadTotalForMonth = Array.isArray(entries)
+          ? entries.reduce((s: number, v: any) => s + (Number(v.amount) || 0), 0)
+          : 0;
+        setUpadTotal(upadTotalForMonth);
+      } catch {
+        upadTotalForMonth = 0;
+        setUpadTotal(0);
+      }
+
+      // Loan (compute once and reuse for UI + export)
+      let loanEmiForMonth = 0;
+      let pendingLoanForMonth = 0;
       try {
         const loanDataRes = await (apiService as any).getEmployeeLoanData(selectedEmployeeId);
         const payload = (loanDataRes as any).data || {};
@@ -99,7 +108,7 @@ export function SalaryMonth() {
         const transactions = Array.isArray(payload.transactions) ? payload.transactions : [];
         const stats = payload.stats || {};
 
-        const emiForMonth = loans.reduce((sum: number, l: any) => {
+        loanEmiForMonth = loans.reduce((sum: number, l: any) => {
           if (l.status !== 'active') return sum;
           const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
           if (!started) return sum;
@@ -111,9 +120,9 @@ export function SalaryMonth() {
           }
           return sum + (Number(l.defaultInstallment) || 0);
         }, 0);
-        setLoanInstallment(emiForMonth);
+        setLoanInstallment(loanEmiForMonth);
 
-        const pendingTotal = loans.reduce((acc: number, l: any) => {
+        pendingLoanForMonth = loans.reduce((acc: number, l: any) => {
           if (l.status !== 'active') return acc;
           const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
           if (!started) return acc;
@@ -135,17 +144,22 @@ export function SalaryMonth() {
           }
           return acc + pending;
         }, 0);
-        setPendingLoan(pendingTotal || 0);
-      } catch { setLoanInstallment(0); setPendingLoan(0); }
+        setPendingLoan(pendingLoanForMonth || 0);
+      } catch {
+        loanEmiForMonth = 0;
+        pendingLoanForMonth = 0;
+        setLoanInstallment(0);
+        setPendingLoan(0);
+      }
       if (!found) toast.info('No attendance recorded for this employee in selected month (showing 0 days)');
 
       // Build export using the same numbers as the on-screen table
       const exportPresentDays = (found?.presentDays ?? 0);
       const exportRate = selectedEmployee?.salaryPerDay || 0;
       const exportBasic = exportPresentDays * exportRate;
-      const exportUpadTotal = upadTotal;
-      const exportLoanInstallment = loanInstallment;
-      const exportPendingLoan = pendingLoan;
+      const exportUpadTotal = upadTotalForMonth;
+      const exportLoanInstallment = loanEmiForMonth;
+      const exportPendingLoan = pendingLoanForMonth;
       const exportNetAmount = exportBasic - exportUpadTotal - exportLoanInstallment;
       buildExport(year, month, {
         presentDays: exportPresentDays,
