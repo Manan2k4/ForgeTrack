@@ -13,6 +13,7 @@ interface Employee {
   department?: string;
   employmentType?: string;
   salaryPerDay?: number;
+   salaryHistory?: Array<{ rate: number; effectiveFromYear: number; effectiveFromMonth: number }>;
   active?: boolean;
 }
 
@@ -68,6 +69,31 @@ export function SalaryMonth() {
     () => employees.find(e => getId(e) === selectedEmployeeId),
     [employees, selectedEmployeeId]
   );
+
+  function getRateForMonth(baseRate: number | undefined, history: Array<{ rate: number; effectiveFromYear: number; effectiveFromMonth: number }> | undefined, year: number, month: number): number {
+    const fallback = typeof baseRate === 'number' ? baseRate : 0;
+    if (!year || !month) return fallback;
+    const list = Array.isArray(history) ? history : [];
+    if (!list.length) return fallback;
+    const target = year * 100 + month;
+    const applicable = list
+      .filter(h => {
+        if (!h) return false;
+        const y = Number(h.effectiveFromYear);
+        const m = Number(h.effectiveFromMonth);
+        if (!y || !m) return false;
+        return (y * 100 + m) <= target;
+      })
+      .sort((a, b) => {
+        const av = Number(a.effectiveFromYear) * 100 + Number(a.effectiveFromMonth);
+        const bv = Number(b.effectiveFromYear) * 100 + Number(b.effectiveFromMonth);
+        return bv - av;
+      })[0];
+    if (applicable && typeof applicable.rate === 'number') {
+      return Number(applicable.rate) || fallback;
+    }
+    return fallback;
+  }
 
   async function handleSearch() {
     if (!selectedEmployeeId) { toast.error('Select employee'); return; }
@@ -155,7 +181,7 @@ export function SalaryMonth() {
 
       // Build export using the same numbers as the on-screen table
       const exportPresentDays = (found?.presentDays ?? 0);
-      const exportRate = selectedEmployee?.salaryPerDay || 0;
+      const exportRate = getRateForMonth(selectedEmployee?.salaryPerDay, selectedEmployee?.salaryHistory, year, month);
       const exportBasic = exportPresentDays * exportRate;
       const exportUpadTotal = upadTotalForMonth;
       const exportLoanInstallment = loanEmiForMonth;
@@ -177,7 +203,10 @@ export function SalaryMonth() {
   }
 
   const presentDays = attendanceSummary?.presentDays || 0;
-  const rate = selectedEmployee?.salaryPerDay || 0;
+  const [uiYearStr, uiMonthStr] = monthYear.split('-');
+  const uiYear = Number(uiYearStr);
+  const uiMonth = Number(uiMonthStr);
+  const rate = getRateForMonth(selectedEmployee?.salaryPerDay, selectedEmployee?.salaryHistory, uiYear, uiMonth);
   const basic = presentDays * rate;
   const netAmount = basic - upadTotal - loanInstallment;
 

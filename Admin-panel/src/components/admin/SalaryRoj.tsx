@@ -12,6 +12,7 @@ interface Employee {
   name: string;
   employmentType?: string;
   dailyRojRate?: number;
+   rojRateHistory?: Array<{ rate: number; effectiveFromYear: number; effectiveFromMonth: number }>;
   active?: boolean;
 }
 
@@ -67,6 +68,31 @@ export function SalaryRoj() {
     [employees, selectedEmployeeId]
   );
 
+  function getRateForMonth(baseRate: number | undefined, history: Array<{ rate: number; effectiveFromYear: number; effectiveFromMonth: number }> | undefined, year: number, month: number): number {
+    const fallback = typeof baseRate === 'number' ? baseRate : 0;
+    if (!year || !month) return fallback;
+    const list = Array.isArray(history) ? history : [];
+    if (!list.length) return fallback;
+    const target = year * 100 + month;
+    const applicable = list
+      .filter(h => {
+        if (!h) return false;
+        const y = Number(h.effectiveFromYear);
+        const m = Number(h.effectiveFromMonth);
+        if (!y || !m) return false;
+        return (y * 100 + m) <= target;
+      })
+      .sort((a, b) => {
+        const av = Number(a.effectiveFromYear) * 100 + Number(a.effectiveFromMonth);
+        const bv = Number(b.effectiveFromYear) * 100 + Number(b.effectiveFromMonth);
+        return bv - av;
+      })[0];
+    if (applicable && typeof applicable.rate === 'number') {
+      return Number(applicable.rate) || fallback;
+    }
+    return fallback;
+  }
+
   // Fetch overtime from backend overtime endpoint (fallback to attendance) when employee/month changes
   useEffect(() => {
     const run = async () => {
@@ -109,11 +135,15 @@ export function SalaryRoj() {
         }
         setOvertimeRows(rows);
         setOvertimeTotalHours(rows.reduce((s, it) => s + (it.hours || 0), 0));
-        setOvertimeRateDefault((selectedEmployee?.dailyRojRate || 0) / 8 || 0);
+        const baseRate = selectedEmployee?.dailyRojRate;
+        const histRate = getRateForMonth(baseRate, selectedEmployee?.rojRateHistory, year, month);
+        setOvertimeRateDefault(histRate > 0 ? histRate / 8 : 0);
       } catch (e) {
         setOvertimeRows([]);
         setOvertimeTotalHours(0);
-        setOvertimeRateDefault((selectedEmployee?.dailyRojRate || 0) / 8 || 0);
+        const baseRate = selectedEmployee?.dailyRojRate;
+        const histRate = getRateForMonth(baseRate, selectedEmployee?.rojRateHistory, year, month);
+        setOvertimeRateDefault(histRate > 0 ? histRate / 8 : 0);
       }
     };
     run();
@@ -206,7 +236,7 @@ export function SalaryRoj() {
       if (!found) toast.info('No attendance recorded for this employee in selected month (showing 0 days)');
       // Build export using the freshly computed numbers (not possibly stale state)
       const exportPresentDays = (found?.presentDays ?? 0);
-      const exportRate = selectedEmployee?.dailyRojRate || 0;
+      const exportRate = getRateForMonth(selectedEmployee?.dailyRojRate, selectedEmployee?.rojRateHistory, year, month);
       const exportBasic = exportPresentDays * exportRate;
       const exportOvertimeHours = overtimeTotalHours;
       const exportOvertimeRate = overtimeRateDefault || (exportRate > 0 ? exportRate / 8 : 0);
@@ -234,7 +264,10 @@ export function SalaryRoj() {
   }
 
   const presentDays = attendanceSummary?.presentDays || 0;
-  const rate = selectedEmployee?.dailyRojRate || 0;
+  const [uiYearStr, uiMonthStr] = monthYear.split('-');
+  const uiYear = Number(uiYearStr);
+  const uiMonth = Number(uiMonthStr);
+  const rate = getRateForMonth(selectedEmployee?.dailyRojRate, selectedEmployee?.rojRateHistory, uiYear, uiMonth);
   // Basic = present days * DRR
   const basic = presentDays * rate;
   const overtimeHours = overtimeTotalHours;

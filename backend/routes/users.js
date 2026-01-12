@@ -27,6 +27,9 @@ router.get('/employees', adminAuth, async (req, res) => {
       employmentType: e.employmentType,
       salaryPerDay: typeof e.salaryPerDay === 'number' ? e.salaryPerDay : undefined,
       dailyRojRate: typeof e.dailyRojRate === 'number' ? e.dailyRojRate : undefined,
+      // Expose optional rate histories so salary screens can pick correct rates per month
+      salaryHistory: Array.isArray(e.salaryHistory) ? e.salaryHistory : undefined,
+      rojRateHistory: Array.isArray(e.rojRateHistory) ? e.rojRateHistory : undefined,
     }));
 
     res.json({
@@ -129,6 +132,203 @@ router.post('/employees', adminAuth, async (req, res) => {
       message: 'Failed to create employee',
       error: error.message
     });
+  }
+});
+
+// Add a rate hike for Monthly or Daily Roj employees
+router.post('/employees/:id/hikes', adminAuth, async (req, res) => {
+  try {
+    const employeeId = req.params.id;
+    const { type, rate, effectiveFromYear, effectiveFromMonth } = req.body || {};
+
+    if (!['monthly', 'roj'].includes(String(type))) {
+      return res.status(400).json({ success: false, message: 'Invalid hike type. Expected "monthly" or "roj".' });
+    }
+
+    const rateNum = Number(rate);
+    const yearNum = Number(effectiveFromYear);
+    const monthNum = Number(effectiveFromMonth);
+
+    if (!Number.isFinite(rateNum) || rateNum < 0) {
+      return res.status(400).json({ success: false, message: 'Invalid rate value' });
+    }
+    if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) {
+      return res.status(400).json({ success: false, message: 'Invalid effective year' });
+    }
+    if (!Number.isInteger(monthNum) || monthNum < 1 || monthNum > 12) {
+      return res.status(400).json({ success: false, message: 'Invalid effective month' });
+    }
+
+    const employee = await User.findById(employeeId);
+    if (!employee || employee.role !== 'employee') {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    const entry = { rate: rateNum, effectiveFromYear: yearNum, effectiveFromMonth: monthNum };
+
+    if (type === 'monthly') {
+      employee.salaryHistory = Array.isArray(employee.salaryHistory) ? employee.salaryHistory : [];
+      employee.salaryHistory.push(entry);
+      employee.salaryHistory.sort((a, b) => (a.effectiveFromYear * 100 + a.effectiveFromMonth) - (b.effectiveFromYear * 100 + b.effectiveFromMonth));
+      const latest = employee.salaryHistory[employee.salaryHistory.length - 1];
+      if (latest && typeof latest.rate === 'number') {
+        employee.salaryPerDay = latest.rate;
+      }
+    } else if (type === 'roj') {
+      employee.rojRateHistory = Array.isArray(employee.rojRateHistory) ? employee.rojRateHistory : [];
+      employee.rojRateHistory.push(entry);
+      employee.rojRateHistory.sort((a, b) => (a.effectiveFromYear * 100 + a.effectiveFromMonth) - (b.effectiveFromYear * 100 + b.effectiveFromMonth));
+      const latest = employee.rojRateHistory[employee.rojRateHistory.length - 1];
+      if (latest && typeof latest.rate === 'number') {
+        employee.dailyRojRate = latest.rate;
+      }
+    }
+
+    await employee.save();
+
+    return res.json({
+      success: true,
+      message: 'Rate hike added successfully',
+      data: {
+        id: employee._id,
+        salaryPerDay: employee.salaryPerDay,
+        dailyRojRate: employee.dailyRojRate,
+        salaryHistory: employee.salaryHistory,
+        rojRateHistory: employee.rojRateHistory,
+      },
+    });
+  } catch (error) {
+    console.error('Add employee rate hike error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to add rate hike', error: error.message });
+  }
+});
+
+// Update a specific rate history entry for Monthly or Daily Roj employees (by index)
+router.patch('/employees/:id/hikes/:index', adminAuth, async (req, res) => {
+  try {
+    const employeeId = req.params.id;
+    const idx = Number(req.params.index);
+    const { type, rate, effectiveFromYear, effectiveFromMonth } = req.body || {};
+
+    if (!['monthly', 'roj'].includes(String(type))) {
+      return res.status(400).json({ success: false, message: 'Invalid hike type. Expected "monthly" or "roj".' });
+    }
+    if (!Number.isInteger(idx) || idx < 0) {
+      return res.status(400).json({ success: false, message: 'Invalid history index' });
+    }
+
+    const employee = await User.findById(employeeId);
+    if (!employee || employee.role !== 'employee') {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    const historyKey = type === 'monthly' ? 'salaryHistory' : 'rojRateHistory';
+    const baseField = type === 'monthly' ? 'salaryPerDay' : 'dailyRojRate';
+    const history = Array.isArray(employee[historyKey]) ? employee[historyKey] : [];
+    if (idx >= history.length) {
+      return res.status(404).json({ success: false, message: 'History entry not found' });
+    }
+
+    const entry = history[idx];
+
+    if (typeof rate !== 'undefined') {
+      const rateNum = Number(rate);
+      if (!Number.isFinite(rateNum) || rateNum < 0) {
+        return res.status(400).json({ success: false, message: 'Invalid rate value' });
+      }
+      entry.rate = rateNum;
+    }
+    if (typeof effectiveFromYear !== 'undefined') {
+      const yearNum = Number(effectiveFromYear);
+      if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) {
+        return res.status(400).json({ success: false, message: 'Invalid effective year' });
+      }
+      entry.effectiveFromYear = yearNum;
+    }
+    if (typeof effectiveFromMonth !== 'undefined') {
+      const monthNum = Number(effectiveFromMonth);
+      if (!Number.isInteger(monthNum) || monthNum < 1 || monthNum > 12) {
+        return res.status(400).json({ success: false, message: 'Invalid effective month' });
+      }
+      entry.effectiveFromMonth = monthNum;
+    }
+
+    // Resort and sync latest into base field
+    history.sort((a, b) => (a.effectiveFromYear * 100 + a.effectiveFromMonth) - (b.effectiveFromYear * 100 + b.effectiveFromMonth));
+    employee[historyKey] = history;
+    const latest = history[history.length - 1];
+    if (latest && typeof latest.rate === 'number') {
+      employee[baseField] = latest.rate;
+    }
+
+    await employee.save();
+    return res.json({
+      success: true,
+      message: 'Rate history entry updated',
+      data: {
+        id: employee._id,
+        salaryPerDay: employee.salaryPerDay,
+        dailyRojRate: employee.dailyRojRate,
+        salaryHistory: employee.salaryHistory,
+        rojRateHistory: employee.rojRateHistory,
+      },
+    });
+  } catch (error) {
+    console.error('Update employee rate history error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update rate history entry', error: error.message });
+  }
+});
+
+// Delete a specific rate history entry for Monthly or Daily Roj employees (by index)
+router.delete('/employees/:id/hikes/:index', adminAuth, async (req, res) => {
+  try {
+    const employeeId = req.params.id;
+    const idx = Number(req.params.index);
+    const { type } = req.query || {};
+
+    if (!['monthly', 'roj'].includes(String(type))) {
+      return res.status(400).json({ success: false, message: 'Invalid hike type. Expected "monthly" or "roj".' });
+    }
+    if (!Number.isInteger(idx) || idx < 0) {
+      return res.status(400).json({ success: false, message: 'Invalid history index' });
+    }
+
+    const employee = await User.findById(employeeId);
+    if (!employee || employee.role !== 'employee') {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    const historyKey = type === 'monthly' ? 'salaryHistory' : 'rojRateHistory';
+    const baseField = type === 'monthly' ? 'salaryPerDay' : 'dailyRojRate';
+    const history = Array.isArray(employee[historyKey]) ? employee[historyKey] : [];
+    if (idx >= history.length) {
+      return res.status(404).json({ success: false, message: 'History entry not found' });
+    }
+
+    history.splice(idx, 1);
+
+    history.sort((a, b) => (a.effectiveFromYear * 100 + a.effectiveFromMonth) - (b.effectiveFromYear * 100 + b.effectiveFromMonth));
+    employee[historyKey] = history;
+    const latest = history[history.length - 1];
+    if (latest && typeof latest.rate === 'number') {
+      employee[baseField] = latest.rate;
+    }
+
+    await employee.save();
+    return res.json({
+      success: true,
+      message: 'Rate history entry deleted',
+      data: {
+        id: employee._id,
+        salaryPerDay: employee.salaryPerDay,
+        dailyRojRate: employee.dailyRojRate,
+        salaryHistory: employee.salaryHistory,
+        rojRateHistory: employee.rojRateHistory,
+      },
+    });
+  } catch (error) {
+    console.error('Delete employee rate history error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete rate history entry', error: error.message });
   }
 });
 

@@ -387,6 +387,26 @@ class ApiService {
     });
   }
 
+  async addJobTypeHike(id: string, data: { rate: number; effectiveFromYear: number; effectiveFromMonth: number }) {
+    return this.request<any>(`/job-types/${id}/hikes`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateJobTypeHike(id: string, index: number, data: Partial<{ rate: number; effectiveFromYear: number; effectiveFromMonth: number }>) {
+    return this.request<any>(`/job-types/${id}/hikes/${index}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteJobTypeHike(id: string, index: number) {
+    return this.request<any>(`/job-types/${id}/hikes/${index}`, {
+      method: 'DELETE',
+    });
+  }
+
   async deleteJobType(id: string) {
     return this.request<any>(`/job-types/${id}`, {
       method: 'DELETE',
@@ -417,6 +437,28 @@ class ApiService {
       }>;
       monthTotal: number;
     }>(`/salary/employee/${employeeId}?month=${month}&year=${year}`);
+  }
+
+  // Employee hike endpoints (Monthly / Roj rate history)
+  async addEmployeeHike(employeeId: string, data: { type: 'monthly' | 'roj'; rate: number; effectiveFromYear: number; effectiveFromMonth: number }) {
+    return this.request<any>(`/users/employees/${employeeId}/hikes`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateEmployeeHike(employeeId: string, index: number, data: { type: 'monthly' | 'roj'; rate?: number; effectiveFromYear?: number; effectiveFromMonth?: number }) {
+    return this.request<any>(`/users/employees/${employeeId}/hikes/${index}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteEmployeeHike(employeeId: string, index: number, type: 'monthly' | 'roj') {
+    const query = `?type=${type}`;
+    return this.request<any>(`/users/employees/${employeeId}/hikes/${index}${query}`, {
+      method: 'DELETE',
+    });
   }
 
   // Attendance APIs

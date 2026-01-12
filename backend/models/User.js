@@ -73,6 +73,18 @@ const userSchema = new mongoose.Schema({
     type: Number,
     min: [0, 'dailyRojRate cannot be negative'],
   },
+  // Optional rate history for Monthly employees (per-day rate hikes)
+  salaryHistory: [{
+    rate: { type: Number, min: 0 },
+    effectiveFromYear: { type: Number, min: 1900 }, // e.g. 2025
+    effectiveFromMonth: { type: Number, min: 1, max: 12 }, // 1-12
+  }],
+  // Optional rate history for Daily Roj employees (roj rate hikes)
+  rojRateHistory: [{
+    rate: { type: Number, min: 0 },
+    effectiveFromYear: { type: Number, min: 1900 },
+    effectiveFromMonth: { type: Number, min: 1, max: 12 },
+  }],
   // Soft-delete flag to retain historical work logs after deactivation
   isActive: {
     type: Boolean,

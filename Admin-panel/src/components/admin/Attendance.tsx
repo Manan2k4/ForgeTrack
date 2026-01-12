@@ -140,7 +140,8 @@ function AttendanceInner() {
         const dateIso = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
         const existing = monthlyAttendance.find(r => r.date.slice(0,10) === dateIso);
         if (existing) {
-          if (!existing.present && existing._id) {
+          // Always set to present for the first N days, regardless of the stale `present` flag in memory
+          if (existing._id) {
             await apiService.updateAttendance(existing._id, { present: true });
           }
         } else {

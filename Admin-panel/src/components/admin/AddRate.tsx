@@ -5,18 +5,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Pencil, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface JobTypeHistoryEntry {
+  rate: number;
+  effectiveFromYear: number;
+  effectiveFromMonth: number;
+}
+
 interface JobType {
   _id: string;
   partType: 'sleeve' | 'rod' | 'pin' | 'general';
   jobName: string;
   rate: number;
+  rateHistory?: JobTypeHistoryEntry[];
 }
 
 export function AddRate() {
   const [jobTypes, setJobTypes] = useState<JobType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editRate, setEditRate] = useState<string>('');
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [hikeMonth, setHikeMonth] = useState<string>(''); // YYYY-MM
+  const [hikeRate, setHikeRate] = useState<string>('');
+  const [savingHike, setSavingHike] = useState(false);
+  const [editingHike, setEditingHike] = useState<{ jobId: string; index: number } | null>(null);
 
   const fetchJobTypes = async () => {
     try {
@@ -48,26 +58,6 @@ export function AddRate() {
     fetchJobTypes();
   }, []);
 
-  const handleUpdateRate = async (id: string) => {
-    const rate = parseFloat(editRate);
-    if (isNaN(rate) || rate < 0) {
-      toast.error('Please enter a valid rate (≥ 0)');
-      return;
-    }
-
-    try {
-      const response = await apiService.updateJobType(id, { rate });
-      if (response.success) {
-        toast.success('Rate updated successfully');
-        setEditingId(null);
-        setEditRate('');
-        fetchJobTypes();
-      }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update rate');
-    }
-  };
-
   const groupedJobTypes = jobTypes.reduce((acc, jt) => {
     if (!acc[jt.partType]) acc[jt.partType] = [];
     acc[jt.partType].push(jt);
@@ -79,6 +69,85 @@ export function AddRate() {
     rod: 'Rod Workshop',
     pin: 'Pin Workshop',
     general: 'General Services'
+  };
+
+  const formatMonthYear = (y: number, m: number) => {
+    if (!y || !m) return '';
+    try {
+      const d = new Date(y, m - 1, 1);
+      return d.toLocaleString('default', { month: 'short', year: 'numeric' });
+    } catch {
+      return `${m.toString().padStart(2, '0')}/${y}`;
+    }
+  };
+
+  const handleAddOrUpdateHike = async (job: JobType) => {
+    const rateNum = parseFloat(hikeRate);
+    if (isNaN(rateNum) || rateNum < 0) {
+      toast.error('Please enter a valid hike rate (≥ 0)');
+      return;
+    }
+    if (!hikeMonth || !/^\d{4}-\d{2}$/.test(hikeMonth)) {
+      toast.error('Please select a valid effective month');
+      return;
+    }
+    const [yearStr, monthStr] = hikeMonth.split('-');
+    const effectiveFromYear = Number(yearStr);
+    const effectiveFromMonth = Number(monthStr);
+    setSavingHike(true);
+    try {
+      if (editingHike && editingHike.jobId === job._id && editingHike.index >= 0) {
+        const resp = await apiService.updateJobTypeHike(job._id, editingHike.index, {
+          rate: rateNum,
+          effectiveFromYear,
+          effectiveFromMonth,
+        });
+        if (resp.success) {
+          toast.success('Hike updated in rate history');
+          setHikeMonth('');
+          setHikeRate('');
+          setEditingHike(null);
+          fetchJobTypes();
+        }
+      } else {
+        const resp = await apiService.addJobTypeHike(job._id, { rate: rateNum, effectiveFromYear, effectiveFromMonth });
+        if (resp.success) {
+          toast.success('Hike added to rate history');
+          setHikeMonth('');
+          setHikeRate('');
+          // Refresh list so history + current rate update
+          fetchJobTypes();
+        }
+      }
+    } catch (error: any) {
+      toast.error(error?.message || (editingHike ? 'Failed to update hike' : 'Failed to add hike'));
+    } finally {
+      setSavingHike(false);
+    }
+  };
+
+  const handleDeleteHike = async (job: JobType, origIndex: number) => {
+    if (origIndex < 0) {
+      toast.error('Could not locate selected history entry');
+      return;
+    }
+    const confirmed = window.confirm('Delete this hike entry from rate history?');
+    if (!confirmed) return;
+
+    try {
+      const resp = await apiService.deleteJobTypeHike(job._id, origIndex);
+      if (resp.success) {
+        toast.success('Hike deleted from rate history');
+        if (editingHike && editingHike.jobId === job._id && editingHike.index === origIndex) {
+          setEditingHike(null);
+          setHikeMonth('');
+          setHikeRate('');
+        }
+        fetchJobTypes();
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to delete hike');
+    }
   };
 
   if (loading) {
@@ -134,61 +203,164 @@ export function AddRate() {
                           </tr>
                         </thead>
                         <tbody>
-                          {jobs.map((job) => (
-                            <tr key={job._id} className="border-b border-border last:border-0">
-                              <td className="py-3 px-4 text-foreground">{job.jobName}</td>
-                              <td className="py-3 px-4">
-                                {editingId === job._id ? (
-                                  <div className="flex gap-2 items-center">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      value={editRate}
-                                      onChange={(e) => setEditRate(e.target.value)}
-                                      className="w-32 px-3 py-1.5 rounded-md border border-input bg-background"
-                                      placeholder="0.00"
-                                      autoFocus
-                                    />
+                          {jobs.map((job) => {
+                            const isExpanded = expandedJobId === job._id;
+                            const originalHistory = Array.isArray(job.rateHistory) ? job.rateHistory : [];
+                            const history = [...originalHistory];
+                            history.sort((a, b) => {
+                              const av = a.effectiveFromYear * 100 + a.effectiveFromMonth;
+                              const bv = b.effectiveFromYear * 100 + b.effectiveFromMonth;
+                              return bv - av; // latest first
+                            });
+                            return (
+                              <React.Fragment key={job._id}>
+                                <tr className="border-b border-border last:border-0">
+                                  <td className="py-3 px-4 text-foreground">{job.jobName}</td>
+                                  <td className="py-3 px-4">
+                                    <span className="text-foreground font-medium">
+                                      Rs {(job.rate || 0).toFixed(2)}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-center space-x-2">
                                     <Button
                                       size="sm"
-                                      onClick={() => handleUpdateRate(job._id)}
-                                    >
-                                      Save
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
+                                      variant="ghost"
                                       onClick={() => {
-                                        setEditingId(null);
-                                        setEditRate('');
+                                        if (isExpanded) {
+                                          setExpandedJobId(null);
+                                          setHikeMonth('');
+                                          setHikeRate('');
+                                        } else {
+                                          setExpandedJobId(job._id);
+                                          setHikeMonth('');
+                                          setHikeRate('');
+                                        }
                                       }}
                                     >
-                                      Cancel
+                                      <Pencil className="w-4 h-4" />
                                     </Button>
-                                  </div>
-                                ) : (
-                                  <span className="text-foreground font-medium">
-                                    Rs {(job.rate || 0).toFixed(2)}
-                                  </span>
+                                  </td>
+                                </tr>
+                                {isExpanded && (
+                                  <tr className="bg-muted/40 border-b border-border last:border-0">
+                                    <td className="py-3 px-4" colSpan={3}>
+                                      <div className="flex flex-col gap-3">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-sm font-medium text-muted-foreground">Rate history</span>
+                                        </div>
+                                        {history.length === 0 ? (
+                                          <p className="text-sm text-muted-foreground">No rate history entries yet. Add a hike below.</p>
+                                        ) : (
+                                          <table className="w-full text-sm border border-border rounded-md overflow-hidden">
+                                            <thead className="bg-muted">
+                                              <tr>
+                                                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Effective from</th>
+                                                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Rate (Rs/piece)</th>
+                                                <th className="px-3 py-2 text-left font-medium text-muted-foreground text-right">Actions</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {history.map((h, idx) => {
+                                                const origIndex = originalHistory.findIndex((orig) =>
+                                                  orig.effectiveFromYear === h.effectiveFromYear &&
+                                                  orig.effectiveFromMonth === h.effectiveFromMonth &&
+                                                  Number(orig.rate) === Number(h.rate)
+                                                );
+
+                                                const monthInputValue = `${h.effectiveFromYear}-${String(h.effectiveFromMonth).padStart(2, '0')}`;
+
+                                                return (
+                                                  <tr key={idx} className="border-t border-border">
+                                                    <td className="px-3 py-1.5">{formatMonthYear(h.effectiveFromYear, h.effectiveFromMonth)}</td>
+                                                    <td className="px-3 py-1.5">Rs {(h.rate || 0).toFixed(2)}</td>
+                                                    <td className="px-3 py-1.5 text-right space-x-1">
+                                                      <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => {
+                                                          if (origIndex < 0) {
+                                                            toast.error('Could not locate selected history entry');
+                                                            return;
+                                                          }
+                                                          setExpandedJobId(job._id);
+                                                          setEditingHike({ jobId: job._id, index: origIndex });
+                                                          setHikeMonth(monthInputValue);
+                                                          setHikeRate(String(h.rate ?? ''));
+                                                        }}
+                                                      >
+                                                        <Pencil className="w-3 h-3" />
+                                                      </Button>
+                                                      <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => handleDeleteHike(job, origIndex)}
+                                                      >
+                                                        <Trash2 className="w-3 h-3" />
+                                                      </Button>
+                                                    </td>
+                                                  </tr>
+                                                );
+                                              })}
+                                            </tbody>
+                                          </table>
+                                        )}
+                                        <div className="flex flex-wrap items-end gap-3 mt-2">
+                                          <div className="flex flex-col gap-1">
+                                            <label className="text-xs text-muted-foreground">Effective month</label>
+                                            <input
+                                              type="month"
+                                              className="px-3 py-1.5 rounded-md border border-input bg-background text-sm"
+                                              value={hikeMonth}
+                                              onChange={(e) => setHikeMonth(e.target.value)}
+                                            />
+                                          </div>
+                                          <div className="flex flex-col gap-1">
+                                            <label className="text-xs text-muted-foreground">New rate (Rs/piece)</label>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              className="w-32 px-3 py-1.5 rounded-md border border-input bg-background text-sm"
+                                              value={hikeRate}
+                                              onChange={(e) => setHikeRate(e.target.value)}
+                                              placeholder="0.00"
+                                            />
+                                          </div>
+                                          <Button
+                                            size="sm"
+                                            className="mt-4"
+                                            disabled={savingHike}
+                                            onClick={() => handleAddOrUpdateHike(job)}
+                                          >
+                                            {savingHike
+                                              ? 'Saving…'
+                                              : editingHike && editingHike.jobId === job._id
+                                                ? 'Update Hike'
+                                                : 'Add Hike'}
+                                          </Button>
+                                          {editingHike && editingHike.jobId === job._id && (
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="mt-4"
+                                              disabled={savingHike}
+                                              onClick={() => {
+                                                setEditingHike(null);
+                                                setHikeMonth('');
+                                                setHikeRate('');
+                                              }}
+                                            >
+                                              Cancel
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
                                 )}
-                              </td>
-                              <td className="py-3 px-4 text-center">
-                                {editingId !== job._id && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => {
-                                      setEditingId(job._id);
-                                      setEditRate(String(job.rate || 0));
-                                    }}
-                                  >
-                                    <Pencil className="w-4 h-4" />
-                                  </Button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
+                              </React.Fragment>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

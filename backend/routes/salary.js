@@ -5,6 +5,34 @@ const User = require('../models/User');
 const { adminAuth } = require('../middleware/auth');
 const router = express.Router();
 
+// Helper: pick correct per-piece rate for a given month/year based on JobType.rateHistory
+function getJobTypeRateForMonth(jobTypeDoc, yearNum, monthNum) {
+  if (!jobTypeDoc) return 0;
+  const history = Array.isArray(jobTypeDoc.rateHistory) ? jobTypeDoc.rateHistory : [];
+  if (!history.length) {
+    return Number(jobTypeDoc.rate || 0);
+  }
+  const target = yearNum * 100 + monthNum;
+  const applicable = history
+    .filter((h) => {
+      if (!h) return false;
+      const y = Number(h.effectiveFromYear);
+      const m = Number(h.effectiveFromMonth);
+      if (!y || !m) return false;
+      return (y * 100 + m) <= target;
+    })
+    .sort((a, b) => {
+      const av = Number(a.effectiveFromYear) * 100 + Number(a.effectiveFromMonth);
+      const bv = Number(b.effectiveFromYear) * 100 + Number(b.effectiveFromMonth);
+      return bv - av; // latest first
+    })[0];
+
+  if (applicable && typeof applicable.rate === 'number') {
+    return Number(applicable.rate) || 0;
+  }
+  return Number(jobTypeDoc.rate || 0);
+}
+
 // Get employee salary breakdown for a specific month
 router.get('/employee/:employeeId', adminAuth, async (req, res) => {
   try {
@@ -66,7 +94,8 @@ router.get('/employee/:employeeId', adminAuth, async (req, res) => {
     const jobTypeMap = {};
     jobTypes.forEach(jt => {
       const key = `${jt.partType}:${jt.jobName}`;
-      jobTypeMap[key] = jt.rate || 0;
+      // month-aware rate resolution using history if present
+      jobTypeMap[key] = getJobTypeRateForMonth(jt, yearNum, monthNum);
     });
 
     // Group logs by date and calculate amounts
