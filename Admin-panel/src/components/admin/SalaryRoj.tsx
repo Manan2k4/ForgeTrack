@@ -249,6 +249,7 @@ export function SalaryRoj() {
       buildExport(year, month, {
         presentDays: exportPresentDays,
         rate: exportRate,
+        baseBasic: exportBaseBasic,
         basic: exportBasic,
         overtimeHours: exportOvertimeHours,
         overtimeRate: exportOvertimeRate,
@@ -283,7 +284,8 @@ export function SalaryRoj() {
   interface ExportNumbers {
     presentDays: number;
     rate: number;
-    basic: number;
+    baseBasic: number; // presentDays * rate
+    basic: number;     // baseBasic + overtimeAmount (gross before deductions)
     overtimeHours: number;
     overtimeRate: number;
     overtimeAmount: number;
@@ -316,12 +318,12 @@ export function SalaryRoj() {
   </head>
   <body>
     <table border="0">
-      <tr><td colspan="10" class="spacer-row">&nbsp;</td></tr>
+      <tr><td colspan="11" class="spacer-row">&nbsp;</td></tr>
       <tr>
-        <td colspan="10" class="title-cell">Salary Report - ${selectedEmployee.name}</td>
+        <td colspan="11" class="title-cell">Salary Report - ${selectedEmployee.name}</td>
       </tr>
       <tr>
-        <td colspan="10" class="subtitle-cell">${monthName} ${year} (Daily Roj)</td>
+        <td colspan="11" class="subtitle-cell">${monthName} ${year} (Daily Roj)</td>
       </tr>
     </table>
     <table border="0">
@@ -329,6 +331,7 @@ export function SalaryRoj() {
         <tr>
           <th class="header-cell">Present Days</th>
           <th class="header-cell">Roj Rate</th>
+          <th class="header-cell">Base Basic</th>
           <th class="header-cell">OT Hrs</th>
           <th class="header-cell">OT Rate</th>
           <th class="header-cell">OT Amt</th>
@@ -343,6 +346,7 @@ export function SalaryRoj() {
         <tr>
           <td class="center">${numbers.presentDays}</td>
           <td class="center">Rs ${numbers.rate.toFixed(2)}</td>
+          <td class="center">Rs ${numbers.baseBasic.toFixed(2)}</td>
           <td class="center">${numbers.overtimeHours}</td>
           <td class="center">Rs ${numbers.overtimeRate.toFixed(2)}</td>
           <td class="center">Rs ${numbers.overtimeAmount.toFixed(2)}</td>
@@ -489,6 +493,7 @@ export function SalaryRoj() {
                   <TableRow>
                     <TableHead className="text-center">Present Days</TableHead>
                     <TableHead className="text-center">Roj Rate</TableHead>
+                    <TableHead className="text-center">Base Basic</TableHead>
                     <TableHead className="text-center">Overtime Hours</TableHead>
                     <TableHead className="text-center">Overtime Rate</TableHead>
                     <TableHead className="text-center">Overtime Amount</TableHead>
@@ -503,6 +508,7 @@ export function SalaryRoj() {
                   <TableRow>
                     <TableCell className="text-center font-semibold">{presentDays}</TableCell>
                     <TableCell className="text-center font-sans">Rs {rate.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-sans">Rs {baseBasic.toFixed(2)}</TableCell>
                     <TableCell className="text-center">{overtimeHours}</TableCell>
                     <TableCell className="text-center font-sans">Rs {overtimeRate.toFixed(2)}</TableCell>
                     <TableCell className="text-center font-sans">Rs {overtimeAmount.toFixed(2)}</TableCell>
