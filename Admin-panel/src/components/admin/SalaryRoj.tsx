@@ -237,14 +237,15 @@ export function SalaryRoj() {
       // Build export using the freshly computed numbers (not possibly stale state)
       const exportPresentDays = (found?.presentDays ?? 0);
       const exportRate = getRateForMonth(selectedEmployee?.dailyRojRate, selectedEmployee?.rojRateHistory, year, month);
-      const exportBasic = exportPresentDays * exportRate;
       const exportOvertimeHours = overtimeTotalHours;
       const exportOvertimeRate = overtimeRateDefault || (exportRate > 0 ? exportRate / 8 : 0);
       const exportOvertimeAmount = exportOvertimeHours * exportOvertimeRate;
+      const exportBaseBasic = exportPresentDays * exportRate;
+      const exportBasic = exportBaseBasic + exportOvertimeAmount;
       const exportUpadTotal = upadTotalForMonth;
       const exportLoanInstallment = loanEmiForMonth;
       const exportPendingLoan = pendingLoanForMonth;
-      const exportNetAmount = (exportBasic + exportOvertimeAmount) - exportUpadTotal - exportLoanInstallment;
+      const exportNetAmount = exportBasic - exportUpadTotal - exportLoanInstallment;
       buildExport(year, month, {
         presentDays: exportPresentDays,
         rate: exportRate,
@@ -268,14 +269,16 @@ export function SalaryRoj() {
   const uiYear = Number(uiYearStr);
   const uiMonth = Number(uiMonthStr);
   const rate = getRateForMonth(selectedEmployee?.dailyRojRate, selectedEmployee?.rojRateHistory, uiYear, uiMonth);
-  // Basic = present days * DRR
-  const basic = presentDays * rate;
+  // Base basic = present days * DRR
+  const baseBasic = presentDays * rate;
   const overtimeHours = overtimeTotalHours;
   // OT rate defaults to DRR/8 when no explicit override
   const overtimeRate = overtimeRateDefault || (rate > 0 ? rate / 8 : 0);
   // OT amount = OT hours * OT rate
   const overtimeAmount = overtimeHours * overtimeRate;
-  const netAmount = (basic + overtimeAmount) - upadTotal - loanInstallment;
+  // Show Basic as base basic + overtime amount (gross before deductions)
+  const basic = baseBasic + overtimeAmount;
+  const netAmount = basic - upadTotal - loanInstallment;
 
   interface ExportNumbers {
     presentDays: number;
