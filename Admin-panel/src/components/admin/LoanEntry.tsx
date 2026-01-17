@@ -148,6 +148,9 @@ export function LoanEntry() {
         principal: p,
         defaultInstallment: emi,
         note: note || undefined,
+        // For new loans, record the first EMI at the start month/year
+        // so that apply-missing-EMIs will not create a duplicate.
+        autoCreateFirstEmi: true,
       });
       toast.success('Loan created');
       setPrincipal('');
@@ -356,33 +359,21 @@ export function LoanEntry() {
   const activeLoans = loans.filter((loan) => loan.status === 'active');
   const pastLoans = loans.filter((loan) => loan.status !== 'active');
   const selectedLoan = loans.find((loan) => loan._id === selectedLoanId);
-  // Pending display rule (resilient to backend stats lag):
-  // - Base on principal, subtract salary-deduction transactions up to and including selected month.
-  // - If no transaction exists for selected month and loan has started, subtract default EMI (display-only auto deduction).
-  // - Manual payment waives EMI for that month but does not reduce principal here.
-  const getAdjustedPending = (loan: Loan) => {
-    let pending = Number(loan.principal);
-    const [yStr, mStr] = txMonthYear.split('-');
-    const viewMonth = Number(mStr);
-    const viewYear = Number(yStr);
-    // subtract salary-deduction payments up to selected month
-    const paidBySalary = transactions
-      .filter((t) => String(t.loanId || t.loan) === String(loan._id))
-      .filter((t) => (t.mode || 'salary-deduction') === 'salary-deduction')
-      .filter((t) => (Number(t.year) < viewYear) || (Number(t.year) === viewYear && Number(t.month) <= viewMonth))
-      .reduce((s, t) => s + (Number(t.amount) || 0), 0);
-    pending = Math.max(0, pending - paidBySalary);
-    // current month adjustment
-    const started = (viewYear > Number(loan.startYear)) || (viewYear === Number(loan.startYear) && viewMonth >= Number(loan.startMonth));
-    if (loan.status === 'active' && started) {
-      const txForLoanThisMonth = transactions.filter((t) => String(t.loanId || t.loan) === String(loan._id) && Number(t.month) === viewMonth && Number(t.year) === viewYear);
-      const hasSalary = txForLoanThisMonth.some((t) => (t.mode || 'salary-deduction') === 'salary-deduction' && Number(t.amount) > 0);
-      const hasManual = txForLoanThisMonth.some((t) => (t.mode || 'manual-payment') === 'manual-payment');
-      if (!hasSalary && !hasManual) {
-        pending = Math.max(0, pending - Number(loan.defaultInstallment || 0));
-      }
+
+  // Pending display rule on this screen:
+  // - Use backend loanStats when available (principal - sum(all transactions)).
+  // - Fallback: subtract all recorded transactions (salary-deduction + manual payments) from principal.
+  //   No extra "automatic" EMI is assumed here; only real records affect pending.
+  const getPendingForLoan = (loan: Loan) => {
+    const principal = Number(loan.principal) || 0;
+    const stats = loanStats[loan._id];
+    if (stats && typeof stats.pendingAmount === 'number') {
+      return Number(stats.pendingAmount) || 0;
     }
-    return Math.max(0, pending);
+    const paid = transactions
+      .filter((t) => String(t.loanId || t.loan) === String(loan._id))
+      .reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    return Math.max(0, principal - paid);
   };
 
   const hasTxForViewMonth = (loanId: string) => {
@@ -411,9 +402,9 @@ export function LoanEntry() {
     }
   };
 
-  const pendingForSelectedLoan = selectedLoan ? getAdjustedPending(selectedLoan) : 0;
+  const pendingForSelectedLoan = selectedLoan ? getPendingForLoan(selectedLoan) : 0;
   const closeLoan = loans.find((loan) => loan._id === closeLoanId);
-  const pendingForClose = closeLoan ? getAdjustedPending(closeLoan) : 0;
+  const pendingForClose = closeLoan ? getPendingForLoan(closeLoan) : 0;
 
   const handleCloseLoanWithLumpSum = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -585,7 +576,7 @@ export function LoanEntry() {
                             <>Rs {Number(loan.defaultInstallment).toFixed(2)}</>
                           )}
                         </TableCell>
-                        <TableCell className="text-center">Rs {getAdjustedPending(loan).toFixed(2)}</TableCell>
+                        <TableCell className="text-center">Rs {getPendingForLoan(loan).toFixed(2)}</TableCell>
                         <TableCell className="text-center">
                           {editingLoanId === loan._id ? (
                             <Input
@@ -670,7 +661,7 @@ export function LoanEntry() {
                         <TableCell className="text-center">{formatMonthYear(loan.startMonth, loan.startYear)}</TableCell>
                         <TableCell className="text-center">Rs {Number(loan.principal).toFixed(2)}</TableCell>
                         <TableCell className="text-center">Rs {Number(loan.defaultInstallment).toFixed(2)}</TableCell>
-                        <TableCell className="text-center">Rs {getAdjustedPending(loan).toFixed(2)}</TableCell>
+                        <TableCell className="text-center">Rs {getPendingForLoan(loan).toFixed(2)}</TableCell>
                         <TableCell className="text-center">{loan.note || '-'}</TableCell>
                         <TableCell className="text-center capitalize">{loan.status}</TableCell>
                         <TableCell className="text-center">{formatDateDMY(loan.createdAt)}</TableCell>

@@ -11,6 +11,7 @@ interface Employee {
   name: string;
   username: string;
   department: string;
+  employmentType?: 'Contract' | 'Monthly' | 'Daily Roj' | string;
 }
 
 interface DailyLog {
@@ -43,6 +44,7 @@ export function EmployeeSalary() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [selectedEmployeeName, setSelectedEmployeeName] = useState<string>('');
   const [showEmployeeList, setShowEmployeeList] = useState(false);
+  const [employeeQuery, setEmployeeQuery] = useState<string>('');
   const [monthYear, setMonthYear] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -66,10 +68,12 @@ export function EmployeeSalary() {
       setLoadingEmployees(true);
       const response = await apiService.getEmployees({ includeInactive: false });
       if (response.success && response.data) {
-        console.log('Raw API response:', response.data);
-        console.log('First employee:', response.data[0]);
-        console.log('Keys of first employee:', response.data[0] ? Object.keys(response.data[0]) : 'no employees');
-        setEmployees(response.data);
+        const rawList = (response.data || []) as Employee[];
+        const contractOnly = rawList.filter((e) => {
+          const type = (e.employmentType || '').toString().toLowerCase();
+          return type === 'contract';
+        });
+        setEmployees(contractOnly);
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to load employees');
@@ -116,75 +120,67 @@ export function EmployeeSalary() {
           setUpadTotal(0);
         }
 
-        // Fetch loan info using aggregated endpoint: prefer recorded transactions for the selected month
+        // Fetch loan info using aggregated endpoint and compute EMI/pending as of the selected month
         try {
           const loanDataRes = await apiService.getEmployeeLoanData(selectedEmployeeId);
           const payload = (loanDataRes as any).data || {};
           const loans = Array.isArray(payload.loans) ? payload.loans : [];
           const transactions = Array.isArray(payload.transactions) ? payload.transactions : [];
-          const stats = payload.stats || {};
 
-          // For each active loan, if there are transactions recorded for the selected month/year, use their sum for that month; otherwise use defaultInstallment
-          const emiForMonth = loans.reduce((sum: number, l: any) => {
-            if (l.status !== 'active') return sum;
-            // Only consider loans that have started by the selected month/year
+          let emiForMonth = 0;
+          let pendingTotal = 0;
+          const waivedIds: string[] = [];
+
+          loans.forEach((l: any) => {
+            const principal = Number(l.principal) || 0;
+            if (!principal) return;
             const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
-            if (!started) return sum;
-            const txForLoanThisMonth = transactions.filter((t: any) => String(t.loan) === String(l._id) && Number(t.month) === month && Number(t.year) === year);
+            if (!started) return;
 
-            // If any manual payment exists for this loan in the selected month,
-            // nullify the EMI for that loan (treat as 0 for the salary report).
-            const hasManual = txForLoanThisMonth.some((t: any) => (t.mode || 'salary-deduction') === 'manual-payment');
-            if (hasManual) return sum + 0;
+            const loanTx = transactions.filter((t: any) => String(t.loan) === String(l._id));
+            const beforeMonthTx = loanTx.filter((t: any) => {
+              const ty = Number(t.year); const tm = Number(t.month);
+              return ty < year || (ty === year && tm < month);
+            });
+            const paidBefore = beforeMonthTx.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
 
-            if (txForLoanThisMonth.length > 0) {
-              return sum + txForLoanThisMonth.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+            const thisMonthTx = loanTx.filter((t: any) => Number(t.year) === year && Number(t.month) === month);
+            const salaryTx = thisMonthTx.filter((t: any) => (t.mode || 'salary-deduction') === 'salary-deduction');
+            const manualTx = thisMonthTx.filter((t: any) => (t.mode || 'salary-deduction') === 'manual-payment');
+
+            let emiForLoan = 0;
+            let paidInMonthForPrincipal = 0;
+
+            if (salaryTx.length > 0) {
+              const salarySum = salaryTx.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+              const manualSum = manualTx.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+              emiForLoan = salarySum;
+              paidInMonthForPrincipal = salarySum + manualSum;
+            } else if (manualTx.length > 0) {
+              const manualSum = manualTx.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+              emiForLoan = 0;
+              paidInMonthForPrincipal = manualSum;
+              waivedIds.push(String(l._id));
+            } else {
+              const defaultInstallment = Number(l.defaultInstallment) || 0;
+              const pendingAtStart = Math.max(0, principal - paidBefore);
+              if (defaultInstallment > 0 && pendingAtStart > 0) {
+                const autoEmi = Math.min(pendingAtStart, defaultInstallment);
+                emiForLoan = autoEmi;
+                paidInMonthForPrincipal = autoEmi;
+              }
             }
-            return sum + (Number(l.defaultInstallment) || 0);
-          }, 0);
+
+            const paidThroughMonth = paidBefore + paidInMonthForPrincipal;
+            const pendingAtEnd = Math.max(0, principal - paidThroughMonth);
+
+            emiForMonth += emiForLoan;
+            pendingTotal += pendingAtEnd;
+          });
 
           setLoanInstallmentTotal(emiForMonth);
-
-          // Track loans which have a manual payment recorded for this month so we can show an EMI-waived indicator
-          const waived = loans.reduce((acc: string[], l: any) => {
-            if (l.status !== 'active') return acc;
-            const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
-            if (!started) return acc;
-            const txForLoanThisMonth = transactions.filter((t: any) => String(t.loan) === String(l._id) && Number(t.month) === month && Number(t.year) === year);
-            const hasManual = txForLoanThisMonth.some((t: any) => (t.mode || 'salary-deduction') === 'manual-payment');
-            if (hasManual) acc.push(String(l._id));
-            return acc;
-          }, [] as string[]);
-          setWaivedLoans(waived);
-
-          // Pending loan total (rules):
-          // - If salary-deduction exists for the month: use backend pending as-is (actual deduction).
-          // - If ONLY manual-payment exists: manual waives salary deduction; principal unchanged (leave pending as-is).
-          // - If no transactions exist: subtract one defaultInstallment (auto-deduction).
-          const pendingTotal = loans.reduce((acc: number, l: any) => {
-            if (l.status !== 'active') return acc;
-            const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
-            if (!started) return acc;
-            let pending = stats[String(l._id)]?.pendingAmount;
-            if (typeof pending !== 'number') pending = 0;
-            const txForLoanThisMonth = transactions.filter((t: any) => String(t.loan) === String(l._id) && Number(t.month) === month && Number(t.year) === year);
-            const hasManual = txForLoanThisMonth.some((t: any) => (t.mode || 'salary-deduction') === 'manual-payment');
-            const salarySum = txForLoanThisMonth
-              .filter((t: any) => (t.mode || 'salary-deduction') === 'salary-deduction')
-              .reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
-
-            if (salarySum > 0) {
-              // keep backend pending as-is
-            } else if (hasManual) {
-              // manual waives EMI; principal unchanged
-              pending = Math.max(0, pending);
-            } else {
-              // auto-deduction for the month
-              pending = Math.max(0, pending - (Number(l.defaultInstallment) || 0));
-            }
-            return acc + pending;
-          }, 0);
           setPendingLoanTotal(pendingTotal || 0);
+          setWaivedLoans(waivedIds);
         } catch (e: any) {
           console.error('Failed to load loan data for salary view', e);
           setLoanInstallmentTotal(0);
@@ -369,41 +365,52 @@ export function EmployeeSalary() {
               </label>
               <div className="space-y-2 relative">
                 {!selectedEmployeeId ? (
-                  <div>
-                    <Button
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder={loadingEmployees ? 'Loading employees…' : 'Type to filter employees'}
+                      className="w-full px-3 pr-9 py-2 rounded-md border-2 border-input bg-background text-foreground"
+                      value={employeeQuery}
+                      onChange={(e) => setEmployeeQuery(e.target.value)}
+                      onFocus={() => {
+                        if (!showEmployeeList) setShowEmployeeList(true);
+                      }}
+                    />
+                    <button
                       type="button"
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal"
-                      onClick={() => setShowEmployeeList(!showEmployeeList)}
+                      className="absolute inset-y-0 right-0 px-2 flex items-center justify-center border-l border-input bg-background text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowEmployeeList(v => !v)}
                       disabled={loadingEmployees}
                     >
-                      {loadingEmployees ? 'Loading...' : '-- Select an employee --'}
-                    </Button>
+                      ▾
+                    </button>
                     {showEmployeeList && (
                       <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                        {employees.map((emp) => {
-                          console.log('Rendering button for emp:', emp);
-                          const empId = emp._id || (emp as any).id;
-                          return (
-                            <button
-                              key={empId}
-                              type="button"
-                              className="w-full text-left px-4 py-2 hover:bg-accent hover:text-accent-foreground transition-colors"
-                              onClick={() => {
-                                console.log('Button clicked - emp object:', emp);
-                                console.log('emp._id:', emp._id, 'emp.id:', (emp as any).id);
-                                const employeeId = emp._id || (emp as any).id;
-                                console.log('Using employeeId:', employeeId);
-                                setSelectedEmployeeId(employeeId);
-                                setSelectedEmployeeName(`${emp.name} (${emp.department})`);
-                                setShowEmployeeList(false);
-                                console.log('State updated - ID:', employeeId, 'Name:', emp.name);
-                              }}
-                            >
-                              {emp.name} - {emp.department}
-                            </button>
-                          );
-                        })}
+                        {employees
+                          .filter((emp) => {
+                            const q = employeeQuery.trim().toLowerCase();
+                            if (!q) return true;
+                            return emp.name.toLowerCase().includes(q);
+                          })
+                          .map((emp) => {
+                            const empId = (emp as any)._id || (emp as any).id;
+                            return (
+                              <button
+                                key={empId}
+                                type="button"
+                                className="w-full text-left px-4 py-2 hover:bg-accent hover:text-accent-foreground transition-colors"
+                                onClick={() => {
+                                  const employeeId = empId as string;
+                                  setSelectedEmployeeId(employeeId);
+                                  setSelectedEmployeeName(`${emp.name} (${emp.department})`);
+                                  setShowEmployeeList(false);
+                                  setEmployeeQuery('');
+                                }}
+                              >
+                                {emp.name} - {emp.department}
+                              </button>
+                            );
+                          })}
                       </div>
                     )}
                   </div>
@@ -416,7 +423,7 @@ export function EmployeeSalary() {
                       onClick={() => {
                         setSelectedEmployeeId('');
                         setSelectedEmployeeName('');
-                        console.log('Selection cleared');
+                        setEmployeeQuery('');
                       }}
                       className="text-muted-foreground hover:text-foreground ml-2"
                       type="button"

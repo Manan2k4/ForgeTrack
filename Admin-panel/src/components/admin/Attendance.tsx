@@ -129,27 +129,36 @@ function AttendanceInner() {
     setLoading(true);
     setSaving(true);
     try {
-      // 1. Reset existing attendance to absent
-      for (const rec of monthlyAttendance) {
-        if (rec.present && rec._id) {
-          await apiService.updateAttendance(rec._id, { present: false });
-        }
+      // 1. Reset existing attendance to absent (batch in parallel for speed)
+      const resetPromises = monthlyAttendance
+        .filter(rec => rec.present && rec._id)
+        .map(rec => apiService.updateAttendance(rec._id as string, { present: false }));
+      if (resetPromises.length) {
+        await Promise.all(resetPromises);
       }
-      // 2. Ensure records exist for first N days and set present
+
+      // 2. Ensure records exist for first N days and set present (batch in parallel)
+      const upsertPromises: Promise<any>[] = [];
       for (let day = 1; day <= desired; day++) {
         const dateIso = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
         const existing = monthlyAttendance.find(r => r.date.slice(0,10) === dateIso);
-        if (existing) {
-          // Always set to present for the first N days, regardless of the stale `present` flag in memory
-          if (existing._id) {
-            await apiService.updateAttendance(existing._id, { present: true });
-          }
-        } else {
-          await apiService.saveAttendance({ employeeId, date: dateIso, present: true });
+        if (existing && existing._id) {
+          upsertPromises.push(apiService.updateAttendance(existing._id, { present: true }));
+        } else if (!existing) {
+          upsertPromises.push(apiService.saveAttendance({ employeeId, date: dateIso, present: true }));
         }
       }
-      // 3. Overtime aggregation: remove all existing overtime records for month, then create one record if total > 0 using first day of month
-      for (const ot of monthlyOvertime) { if (ot._id) await apiService.deleteOvertime(ot._id); }
+      if (upsertPromises.length) {
+        await Promise.all(upsertPromises);
+      }
+
+      // 3. Overtime aggregation: remove all existing overtime records for month, then create one record if total > 0 using first day of month (batch deletes)
+      const deleteOtpromises = monthlyOvertime
+        .filter(ot => ot._id)
+        .map(ot => apiService.deleteOvertime(ot._id as string));
+      if (deleteOtpromises.length) {
+        await Promise.all(deleteOtpromises);
+      }
       const otTotal = Number(monthlyOtHoursInput) || 0;
       if (otTotal > 0) {
         // Preserve original entry date if it exists; otherwise use typed dd/mm/yyyy day; else fallback to first of month

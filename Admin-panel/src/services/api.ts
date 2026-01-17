@@ -528,7 +528,7 @@ class ApiService {
   }
 
   // Loan APIs
-  async createLoan(data: { employeeId: string; startMonth: number; startYear: number; principal: number; defaultInstallment: number; note?: string }) {
+  async createLoan(data: { employeeId: string; startMonth: number; startYear: number; principal: number; defaultInstallment: number; note?: string; autoCreateFirstEmi?: boolean }) {
     return this.request<any>('/finance/loans', {
       method: 'POST',
       body: JSON.stringify(data),

@@ -68,6 +68,66 @@ export function SalaryRoj() {
     [employees, selectedEmployeeId]
   );
 
+  function computeLoanForMonth(
+    loans: any[] | undefined,
+    transactions: any[] | undefined,
+    year: number,
+    month: number
+  ): { emiForMonth: number; pendingTotal: number } {
+    const loanList = Array.isArray(loans) ? loans : [];
+    const txList = Array.isArray(transactions) ? transactions : [];
+    let emiForMonth = 0;
+    let pendingTotal = 0;
+
+    loanList.forEach((l: any) => {
+      const principal = Number(l.principal) || 0;
+      if (!principal) return;
+      const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
+      if (!started) return;
+
+      const loanTx = txList.filter((t: any) => String(t.loan) === String(l._id));
+      const beforeMonthTx = loanTx.filter((t: any) => {
+        const ty = Number(t.year); const tm = Number(t.month);
+        return ty < year || (ty === year && tm < month);
+      });
+      const paidBefore = beforeMonthTx.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+
+      const thisMonthTx = loanTx.filter((t: any) => Number(t.year) === year && Number(t.month) === month);
+      const salaryTx = thisMonthTx.filter((t: any) => (t.mode || 'salary-deduction') === 'salary-deduction');
+      const manualTx = thisMonthTx.filter((t: any) => (t.mode || 'salary-deduction') === 'manual-payment');
+
+      let emiForLoan = 0;
+      let paidInMonthForPrincipal = 0;
+
+      if (salaryTx.length > 0) {
+        const salarySum = salaryTx.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+        const manualSum = manualTx.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+        emiForLoan = salarySum;
+        paidInMonthForPrincipal = salarySum + manualSum;
+      } else if (manualTx.length > 0) {
+        const manualSum = manualTx.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+        emiForLoan = 0;
+        paidInMonthForPrincipal = manualSum;
+      } else {
+        const defaultInstallment = Number(l.defaultInstallment) || 0;
+        const pendingAtStart = Math.max(0, principal - paidBefore);
+        if (defaultInstallment > 0 && pendingAtStart > 0) {
+          const autoEmi = Math.min(pendingAtStart, defaultInstallment);
+          emiForLoan = autoEmi;
+          paidInMonthForPrincipal = autoEmi;
+        }
+      }
+
+      const paidThroughMonth = paidBefore + paidInMonthForPrincipal;
+      const pendingAtEnd = Math.max(0, principal - paidThroughMonth);
+
+      emiForMonth += emiForLoan;
+      pendingTotal += pendingAtEnd;
+    });
+
+    return { emiForMonth, pendingTotal };
+  }
+
   function getRateForMonth(baseRate: number | undefined, history: Array<{ rate: number; effectiveFromYear: number; effectiveFromMonth: number }> | undefined, year: number, month: number): number {
     const fallback = typeof baseRate === 'number' ? baseRate : 0;
     if (!year || !month) return fallback;
@@ -179,7 +239,7 @@ export function SalaryRoj() {
         setUpadTotal(0);
       }
 
-      // Loan (use Contract Salary schema) - compute once and reuse
+      // Loan (use Contract Salary schema) - compute once and reuse with as-of-month logic
       let loanEmiForMonth = 0;
       let pendingLoanForMonth = 0;
       try {
@@ -187,44 +247,11 @@ export function SalaryRoj() {
         const payload = (loanDataRes as any).data || {};
         const loans = Array.isArray(payload.loans) ? payload.loans : [];
         const transactions = Array.isArray(payload.transactions) ? payload.transactions : [];
-        const stats = payload.stats || {};
 
-        loanEmiForMonth = loans.reduce((sum: number, l: any) => {
-          if (l.status !== 'active') return sum;
-          const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
-          if (!started) return sum;
-          const txForLoanThisMonth = transactions.filter((t: any) => String(t.loan) === String(l._id) && Number(t.month) === month && Number(t.year) === year);
-          const hasManual = txForLoanThisMonth.some((t: any) => (t.mode || 'salary-deduction') === 'manual-payment');
-          if (hasManual) return sum + 0;
-          if (txForLoanThisMonth.length > 0) {
-            return sum + txForLoanThisMonth.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
-          }
-          return sum + (Number(l.defaultInstallment) || 0);
-        }, 0);
+        const result = computeLoanForMonth(loans, transactions, year, month);
+        loanEmiForMonth = result.emiForMonth;
+        pendingLoanForMonth = result.pendingTotal;
         setLoanInstallment(loanEmiForMonth);
-
-        pendingLoanForMonth = loans.reduce((acc: number, l: any) => {
-          if (l.status !== 'active') return acc;
-          const started = (Number(year) > Number(l.startYear)) || (Number(year) === Number(l.startYear) && Number(month) >= Number(l.startMonth));
-          if (!started) return acc;
-          let pending = stats[String(l._id)]?.pendingAmount;
-          if (typeof pending !== 'number') pending = 0;
-          const txForLoanThisMonth = transactions.filter((t: any) => String(t.loan) === String(l._id) && Number(t.month) === month && Number(t.year) === year);
-          const hasManual = txForLoanThisMonth.some((t: any) => (t.mode || 'salary-deduction') === 'manual-payment');
-          const salarySum = txForLoanThisMonth
-            .filter((t: any) => (t.mode || 'salary-deduction') === 'salary-deduction')
-            .reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
-          if (salarySum > 0) {
-            // keep backend pending as-is
-          } else if (hasManual) {
-            // manual waives EMI; principal unchanged
-            pending = Math.max(0, pending);
-          } else {
-            // auto-deduction for the month
-            pending = Math.max(0, pending - (Number(l.defaultInstallment) || 0));
-          }
-          return acc + pending;
-        }, 0);
         setPendingLoan(pendingLoanForMonth || 0);
       } catch {
         loanEmiForMonth = 0;
@@ -390,23 +417,22 @@ export function SalaryRoj() {
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Type to filter…"
-                    className="w-full px-3 py-2 mb-2 rounded border bg-background"
+                    placeholder={loadingEmployees ? 'Loading employees…' : 'Type to filter employees'}
+                    className="w-full px-3 pr-9 py-2 rounded border-2 bg-background"
                     value={employeeQuery}
                     onChange={e => setEmployeeQuery(e.target.value)}
-                    onKeyDown={e => {
+                    onFocus={() => {
                       if (!showEmployeeList) setShowEmployeeList(true);
                     }}
                   />
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
-                    className="w-full justify-start"
+                    className="absolute inset-y-0 right-0 px-2 flex items-center justify-center border-l border-input bg-background text-muted-foreground hover:text-foreground"
                     disabled={loadingEmployees}
                     onClick={() => setShowEmployeeList(v => !v)}
                   >
-                    {loadingEmployees ? 'Loading...' : 'Select employee'}
-                  </Button>
+                    ▾
+                  </button>
                   {showEmployeeList && (
                     <div className="absolute z-10 w-full mt-1 bg-background border rounded shadow max-h-60 overflow-y-auto">
                       {employees.filter(emp => {

@@ -32,7 +32,7 @@ export function ViewLogs() {
   const [manualOpen, setManualOpen] = useState(false);
   const [manualSaving, setManualSaving] = useState(false);
   const [manualEmployees, setManualEmployees] = useState<Array<{ id: string; name: string; department?: string }>>([]);
-  const [manualProducts, setManualProducts] = useState<Array<{ id: string; label: string }>>([]);
+  const [manualProducts, setManualProducts] = useState<Array<{ id: string; label: string; sizes: string[] }>>([]);
   const [manualForm, setManualForm] = useState<{
     employeeId: string;
     workDate: string; // YYYY-MM-DD
@@ -113,7 +113,8 @@ export function ViewLogs() {
         const items = (resp.data || []) as any[];
         const mapped = items.map((p: any) => ({
           id: p._id || p.id,
-          label: manualForm.jobType === 'sleeve' ? (p.code || '(no-code)') : (p.partName || '(no-name)')
+          label: manualForm.jobType === 'sleeve' ? (p.code || '(no-code)') : (p.partName || '(no-name)'),
+          sizes: Array.isArray(p.sizes) ? p.sizes : []
         }));
         setManualProducts(mapped);
       } catch {
@@ -591,7 +592,7 @@ export function ViewLogs() {
             </div>
             <div>
               <label className="text-sm font-medium">Job Type</label>
-              <Select value={manualForm.jobType} onValueChange={(v: any) => setManualForm(prev => ({ ...prev, jobType: v, productId: '' }))}>
+              <Select value={manualForm.jobType} onValueChange={(v: any) => setManualForm(prev => ({ ...prev, jobType: v, productId: '', partSize: '', operation: '' }))}>
                 <SelectTrigger className="h-10">
                   <SelectValue placeholder="Select job type" />
                 </SelectTrigger>
@@ -604,7 +605,7 @@ export function ViewLogs() {
             </div>
             <div>
               <label className="text-sm font-medium">Product</label>
-              <Select value={manualForm.productId} onValueChange={(v) => setManualForm(prev => ({ ...prev, productId: v }))} disabled={!manualForm.jobType}>
+              <Select value={manualForm.productId} onValueChange={(v) => setManualForm(prev => ({ ...prev, productId: v, partSize: '' }))} disabled={!manualForm.jobType}>
                 <SelectTrigger className="h-10">
                   <SelectValue placeholder={manualForm.jobType ? 'Select product' : 'Select job type first'} />
                 </SelectTrigger>
@@ -617,13 +618,37 @@ export function ViewLogs() {
             </div>
             <div>
               <label className="text-sm font-medium">Part Size</label>
-              <input
-                type="text"
-                className="border rounded-md h-10 px-3 w-full"
-                value={manualForm.partSize}
-                onChange={(e) => setManualForm(prev => ({ ...prev, partSize: e.target.value }))}
-                placeholder="e.g. 10mm"
-              />
+              {(() => {
+                const selectedProduct = manualProducts.find(p => String(p.id) === manualForm.productId);
+                const sizes = selectedProduct?.sizes || [];
+                if (sizes.length > 0) {
+                  return (
+                    <Select
+                      value={manualForm.partSize}
+                      onValueChange={(v) => setManualForm(prev => ({ ...prev, partSize: v }))}
+                      disabled={!manualForm.productId}
+                    >
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder={manualForm.productId ? 'Select size' : 'Select product first'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sizes.map(size => (
+                          <SelectItem key={size} value={size}>{size}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  );
+                }
+                return (
+                  <input
+                    type="text"
+                    className="border rounded-md h-10 px-3 w-full"
+                    value={manualForm.partSize}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, partSize: e.target.value }))}
+                    placeholder="e.g. 10mm"
+                  />
+                );
+              })()}
             </div>
             <div>
               <label className="text-sm font-medium">Special Size</label>
@@ -698,14 +723,18 @@ export function ViewLogs() {
                   if (!manualForm.partSize && !manualForm.specialSize) return toast.error('Enter part size or special size');
                   if (!manualForm.totalParts || manualForm.totalParts < 1) return toast.error('Total parts must be at least 1');
 
+                  const totalParts = Number(manualForm.totalParts);
+                  const rawRejection = Number(manualForm.rejection || 0);
+                  const rejection = Math.min(rawRejection, totalParts);
+
                   setManualSaving(true);
                   await apiService.createWorkLog({
                     productId: manualForm.productId,
                     partSize: manualForm.partSize || undefined,
                     specialSize: manualForm.specialSize || undefined,
                     operation: manualForm.operation || undefined,
-                    totalParts: Number(manualForm.totalParts),
-                    rejection: Number(manualForm.rejection || 0),
+                    totalParts,
+                    rejection,
                     employeeId: manualForm.employeeId,
                     workDate: manualForm.workDate,
                   });
@@ -816,9 +845,12 @@ export function ViewLogs() {
                 if (!editing.log) return;
                 try {
                   setEditing(prev => ({ ...prev, saving: true }));
+                  const totalParts = Number(editing.log.totalParts || 0);
+                  const rawRejection = Number(editing.log.rejection ?? 0);
+                  const rejection = Math.min(rawRejection, totalParts);
                   await apiService.updateWorkLog(editing.log.id, {
-                    totalParts: editing.log.totalParts,
-                    rejection: editing.log.rejection ?? 0,
+                    totalParts,
+                    rejection,
                     partSize: editing.log.partSize,
                     specialSize: editing.log.specialSize ?? undefined,
                     operation: editing.log.operation ?? null,

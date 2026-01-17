@@ -92,7 +92,7 @@ router.delete('/upad/:id', adminAuth, async (req, res) => {
 // Create Loan
 router.post('/loans', adminAuth, async (req, res) => {
   try {
-    const { employeeId, startMonth, startYear, principal, defaultInstallment, note } = req.body;
+    const { employeeId, startMonth, startYear, principal, defaultInstallment, note, autoCreateFirstEmi } = req.body;
     if (!employeeId || !startMonth || !startYear || typeof principal !== 'number' || typeof defaultInstallment !== 'number') {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
@@ -105,6 +105,26 @@ router.post('/loans', adminAuth, async (req, res) => {
       defaultInstallment,
       note: note || undefined,
     });
+
+    // Optionally create the first EMI transaction at loan start month/year.
+    // This is controlled by autoCreateFirstEmi so existing production data
+    // is not affected unless the caller explicitly opts in.
+    try {
+      const shouldCreateFirstEmi = Boolean(autoCreateFirstEmi) && Number(defaultInstallment) > 0;
+      if (shouldCreateFirstEmi) {
+        await LoanTransaction.create({
+          loan: loan._id,
+          employee: loan.employee,
+          month: Number(startMonth),
+          year: Number(startYear),
+          amount: Number(defaultInstallment),
+          mode: 'salary-deduction',
+        });
+      }
+    } catch (txErr) {
+      console.error('Failed to create first EMI transaction for new loan', txErr);
+      // Do not fail the loan creation if EMI creation fails.
+    }
 
     return res.status(201).json({ success: true, data: loan });
   } catch (error) {
